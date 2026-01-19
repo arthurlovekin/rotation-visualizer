@@ -47,9 +47,18 @@ pub fn main() {
             .unchecked_into::<leptos::web_sys::HtmlCanvasElement>()
     };
 
+    // Sync canvas buffer size with CSS display size to prevent distortion
+    #[cfg(target_arch = "wasm32")]
+    {
+        let dpr = leptos::web_sys::window().unwrap().device_pixel_ratio();
+        let css_width = canvas_element.client_width() as f64;
+        let css_height = canvas_element.client_height() as f64;
+        canvas_element.set_width((css_width * dpr) as u32);
+        canvas_element.set_height((css_height * dpr) as u32);
+    }
+
     let window = Window::new(WindowSettings {
         title: "Rotation Visualizer".to_string(),
-        max_size: Some((1280, 720)),
         #[cfg(target_arch = "wasm32")]
         canvas: Some(canvas_element),
         ..Default::default()
@@ -59,9 +68,9 @@ pub fn main() {
 
     let mut camera = Camera::new_perspective(
         window.viewport(),
-        vec3(5.0, 2.0, 2.5),
-        vec3(0.0, 0.0, -0.5),
-        vec3(0.0, 1.0, 0.0),
+        vec3(5.0, 3.0, 2.5),
+        vec3(0.0, 0.0, 0.0),
+        vec3(0.0, 0.0, 1.0),
         degrees(45.0),
         0.1,
         1000.0,
@@ -144,6 +153,24 @@ pub fn main() {
     let light1 = DirectionalLight::new(&context, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
 
     window.render_loop(move |mut frame_input| {
+        // Sync canvas buffer size with CSS display size on each frame (handles resize)
+        #[cfg(target_arch = "wasm32")]
+        {
+            let canvas = leptos::tachys::dom::document()
+                .get_element_by_id("three-canvas")
+                .unwrap()
+                .unchecked_into::<leptos::web_sys::HtmlCanvasElement>();
+            let dpr = leptos::web_sys::window().unwrap().device_pixel_ratio();
+            let css_width = canvas.client_width() as f64;
+            let css_height = canvas.client_height() as f64;
+            let buffer_width = (css_width * dpr) as u32;
+            let buffer_height = (css_height * dpr) as u32;
+            if canvas.width() != buffer_width || canvas.height() != buffer_height {
+                canvas.set_width(buffer_width);
+                canvas.set_height(buffer_height);
+            }
+        }
+
         camera.set_viewport(frame_input.viewport);
         control.handle_events(&mut camera, &mut frame_input.events);
 

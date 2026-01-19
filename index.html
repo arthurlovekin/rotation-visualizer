@@ -17,15 +17,21 @@
       }
       #leptos-app {
         flex: 1;
+        min-width: 0; /* prevent flex item from overflowing */
         padding: 20px;
         overflow-y: auto;
         background: #1a1a2e;
         color: #eee;
       }
-      #three-canvas {
-        flex: 1;
-        width: 50%;
+      .canvas-container {
+        flex: 0 0 50%; /* don't grow, don't shrink, stay at 50% */
         height: 100%;
+        position: relative;
+      }
+      #three-canvas {
+        width: 100% !important;  /* override any inline styles */
+        height: 100% !important;
+        display: block;
       }
       .red {
         color: red;
@@ -35,7 +41,9 @@
   <body>
     <div class="container">
       <div id="leptos-app"></div>
-      <canvas id="three-canvas"></canvas>
+      <div class="canvas-container">
+        <canvas id="three-canvas"></canvas>
+      </div>
     </div>
   </body>
 </html>
