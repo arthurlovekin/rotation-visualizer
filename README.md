@@ -35,14 +35,14 @@ There is also a button to toggle the matrix/vector formatting between languages 
     - Visualization (can be toggled on/off): three 3D arcs similar to a physical gimbal.
     - Quirk: Gimbal lock - Numbers turn red if gimbal lock is detected
     - Widgets: Circular sliders for roll, pitch, and yaw
-- 2 3d-points (plus the zero-vector) used to define an orthonormal basis via the gram-schmidt process
-- 5 numbers of a rotation matrix to define an orthonormal basis via the gram-schmidt process (without assuming the zero-vector as the center)
+- First 5 numbers of a rotation matrix (the full matrix can be determined via the gram-schmidt process)
 
 Additional Visualizations:
 1. Gimbal-lock visualization: Animation of a plane going into gimbal lock and watching the roll pitch and yaw try to adjust as it pushes through the lock
 2. Discussion about cross-products
 3. Discussion about Lie Algebra and Groups
 4. Discussion on how AI learns these representations (mechanistic interpretability)
+5. Discussion on the pros and cons of different representations
 
 Desirable properties of a rotation representation:
 - Easy to visualize (ie. make a mental picture in your head given the values of the representation and vice versa)
