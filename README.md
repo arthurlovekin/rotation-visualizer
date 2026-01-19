@@ -55,5 +55,18 @@ Desirable properties of a rotation representation:
     - Axis-Angle (3d)
     - Quaternion
 
-References: 
-https://github.com/deniz-hofmeister/transforms
+## References
+- https://github.com/deniz-hofmeister/transforms
+
+
+## Development
+To run the development server, run the following, then open the browser to see the app.
+
+```
+trunk serve
+```
+
+(You can also build the project without trunk with the following command:)
+```
+cargo build --target wasm32-unknown-unknown --release
+```
