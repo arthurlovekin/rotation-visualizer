@@ -2,15 +2,13 @@
 This tool shows different representations of a rotation in 3D, including a visual representation and various algebraic representations. All of the representations are a "view" into the same underlying rotation, and update automatically as the user interacts with the sliders or text boxes.
 
 ## Visual Layout:
-On the right of the screen is a canvas with the un-rotated(gray) and rotated (black) version of the same mesh. There are checkboxes / dropdowns to configure:
-    - Different mesh options (eg. Coordinate axes, colored cube, Monkey, airplane)
+On the right of the screen is a black canvas with the un-rotated (gray) and rotated (white) version of the same mesh. There are checkboxes / dropdowns to configure:
+    - Different meshes (eg. Coordinate axes, colored cube, Monkey, airplane)
     - Include the axis-angle representation (visualized in 3D as a flag)
     - Include the coordinate axes and rotated coordinate-axes (arrows)
     - Include the Euler-Angle Arcs: https://compsci290-s2016.github.io/CoursePage/Materials/EulerAnglesViz/
 On the left of the screen are the algebraic representations of the rotation (see below). Each representation includes a text box from/into which the user can copy/paste/type, and also sliders that follow the values of the representation.
-There is also a button to toggle the matrix/vector formatting between languages (Python, Matlab, R, yaml, or user-defined).
-
-(the URL of the site determines the default settings)
+There is also a button to toggle the matrix/vector formatting between languages (Python, Matlab, R, yaml, or user-defined). The URL of the site determines the settings.
 
 ## Representations:
 
