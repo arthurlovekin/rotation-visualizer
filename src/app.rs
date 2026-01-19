@@ -154,8 +154,9 @@ pub fn main() {
 
     window.render_loop(move |mut frame_input| {
         // Sync canvas buffer size with CSS display size on each frame (handles resize)
+        // and create a viewport based on actual canvas dimensions
         #[cfg(target_arch = "wasm32")]
-        {
+        let canvas_viewport = {
             let canvas = leptos::tachys::dom::document()
                 .get_element_by_id("three-canvas")
                 .unwrap()
@@ -169,9 +170,17 @@ pub fn main() {
                 canvas.set_width(buffer_width);
                 canvas.set_height(buffer_height);
             }
-        }
+            Viewport {
+                x: 0,
+                y: 0,
+                width: buffer_width,
+                height: buffer_height,
+            }
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        let canvas_viewport = frame_input.viewport;
 
-        camera.set_viewport(frame_input.viewport);
+        camera.set_viewport(canvas_viewport);
         control.handle_events(&mut camera, &mut frame_input.events);
 
         frame_input
