@@ -1,12 +1,27 @@
 use leptos::mount::mount_to;
 use leptos::prelude::*;
+mod rotation;
+
+#[component]
+fn QuaternionBox() -> impl IntoView {
+    view! {
+        <div>
+            <h2>"Quaternion"</h2>
+        <input
+            type="text"
+            value="[0.0,0.0,0.0,1.0]"
+        />
+        </div>
+
+    }
+}
 
 #[component]
 fn App() -> impl IntoView {
-    let (count, set_count) = signal(0);
-
+    let (count, set_count) = signal(0);    
     view! {
         <h1>"Rotation Visualizer"</h1>
+
         <button
             on:click=move |_| *set_count.write() += 1
             class:red=move || count.get() % 2 == 1
@@ -77,77 +92,7 @@ pub fn main() {
     );
     let mut control = OrbitControl::new(camera.target(), 1.0, 100.0);
 
-    let mut sphere = Gm::new(
-        Mesh::new(&context, &CpuMesh::sphere(16)),
-        PhysicalMaterial::new_transparent(
-            &context,
-            &CpuMaterial {
-                albedo: Srgba {
-                    r: 255,
-                    g: 0,
-                    b: 0,
-                    a: 200,
-                },
-                ..Default::default()
-            },
-        ),
-    );
-    sphere.set_transformation(Mat4::from_translation(vec3(0.0, 1.3, 0.0)) * Mat4::from_scale(0.2));
-    let mut cylinder = Gm::new(
-        Mesh::new(&context, &CpuMesh::cylinder(16)),
-        PhysicalMaterial::new_transparent(
-            &context,
-            &CpuMaterial {
-                albedo: Srgba {
-                    r: 0,
-                    g: 255,
-                    b: 0,
-                    a: 200,
-                },
-                ..Default::default()
-            },
-        ),
-    );
-    cylinder
-        .set_transformation(Mat4::from_translation(vec3(1.3, 0.0, 0.0)) * Mat4::from_scale(0.2));
-    let mut cube = Gm::new(
-        Mesh::new(&context, &CpuMesh::cube()),
-        PhysicalMaterial::new_transparent(
-            &context,
-            &CpuMaterial {
-                albedo: Srgba {
-                    r: 0,
-                    g: 0,
-                    b: 255,
-                    a: 100,
-                },
-                ..Default::default()
-            },
-        ),
-    );
-    cube.set_transformation(Mat4::from_translation(vec3(0.0, 0.0, 1.3)) * Mat4::from_scale(0.2));
     let axes = Axes::new(&context, 0.1, 2.0);
-    let bounding_box_sphere = Gm::new(
-        BoundingBox::new(&context, sphere.aabb()),
-        ColorMaterial {
-            color: Srgba::BLACK,
-            ..Default::default()
-        },
-    );
-    let bounding_box_cube = Gm::new(
-        BoundingBox::new(&context, cube.aabb()),
-        ColorMaterial {
-            color: Srgba::BLACK,
-            ..Default::default()
-        },
-    );
-    let bounding_box_cylinder = Gm::new(
-        BoundingBox::new(&context, cylinder.aabb()),
-        ColorMaterial {
-            color: Srgba::BLACK,
-            ..Default::default()
-        },
-    );
 
     let light0 = DirectionalLight::new(&context, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
     let light1 = DirectionalLight::new(&context, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
@@ -188,14 +133,7 @@ pub fn main() {
             .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
             .render(
                 &camera,
-                sphere
-                    .into_iter()
-                    .chain(&cylinder)
-                    .chain(&cube)
-                    .chain(&axes)
-                    .chain(&bounding_box_sphere)
-                    .chain(&bounding_box_cube)
-                    .chain(&bounding_box_cylinder),
+                &axes,
                 &[&light0, &light1],
             );
 
