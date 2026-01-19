@@ -1,4 +1,4 @@
-use leptos::mount::mount_to_body;
+use leptos::mount::mount_to;
 use leptos::prelude::*;
 
 #[component]
@@ -6,6 +6,7 @@ fn App() -> impl IntoView {
     let (count, set_count) = signal(0);
 
     view! {
+        <h1>"Rotation Visualizer"</h1>
         <button
             on:click=move |_| *set_count.write() += 1
             class:red=move || count.get() % 2 == 1
@@ -29,11 +30,28 @@ fn App() -> impl IntoView {
 use three_d::*;
 
 pub fn main() {
-    mount_to_body(App); // Leptos
+    // Mount Leptos to the specific container element
+    use leptos::wasm_bindgen::JsCast;
+    let leptos_root = leptos::tachys::dom::document()
+        .get_element_by_id("leptos-app")
+        .expect("should find #leptos-app element")
+        .unchecked_into::<leptos::web_sys::HtmlElement>();
+    mount_to(leptos_root, App).forget(); // Keep the view mounted permanently
+
+    // Configure three-d to use the specific canvas element
+    #[cfg(target_arch = "wasm32")]
+    let canvas_element = {
+        leptos::tachys::dom::document()
+            .get_element_by_id("three-canvas")
+            .expect("should find #three-canvas element")
+            .unchecked_into::<leptos::web_sys::HtmlCanvasElement>()
+    };
 
     let window = Window::new(WindowSettings {
-        title: "Shapes!".to_string(),
+        title: "Rotation Visualizer".to_string(),
         max_size: Some((1280, 720)),
+        #[cfg(target_arch = "wasm32")]
+        canvas: Some(canvas_element),
         ..Default::default()
     })
     .unwrap();

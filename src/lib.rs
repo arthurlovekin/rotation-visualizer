@@ -1,5 +1,4 @@
-#![allow(special_module_name)]
-mod main;
+mod app;
 
 // Entry point for wasm
 #[cfg(target_arch = "wasm32")]
@@ -14,6 +13,6 @@ pub fn start() -> Result<(), JsValue> {
     info!("Logging works!");
 
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-    main::main();
+    app::main();
     Ok(())
 }
