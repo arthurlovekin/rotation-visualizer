@@ -8,6 +8,8 @@ authors = ["Arthur Lovekin <arthurlovekin@gmail.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
+console_error_panic_hook = "0.1"
+leptos = { version = "0.8.15", features = ["csr"] }
 three-d = "0.18.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
