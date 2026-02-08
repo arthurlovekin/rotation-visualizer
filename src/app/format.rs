@@ -53,6 +53,9 @@ impl TextFormat {
         // Strip wrapper functions like np.array(...), vec![...], Quaternion(...)
         let content = Self::strip_wrappers(trimmed);
 
+        // Validate bracket balance before parsing
+        Self::validate_brackets(content)?;
+
         // Detect and strip brackets
         let (open_vector, close_vector, inner) = Self::detect_brackets(content);
 
@@ -93,6 +96,9 @@ impl TextFormat {
 
         // Strip wrapper functions like np.array(...)
         let content = Self::strip_wrappers(trimmed);
+
+        // Validate bracket balance before parsing
+        Self::validate_brackets(content)?;
 
         // Detect and strip outer (matrix) brackets
         let (open_matrix, close_matrix, inner) = Self::detect_brackets(content);
@@ -230,6 +236,13 @@ impl TextFormat {
                 } else if depth < 0 {
                     return Err("Unbalanced brackets in matrix".to_string());
                 }
+            } else if depth == 0
+                && matches!(ch, '(' | ')' | '[' | ']' | '{' | '}')
+            {
+                return Err(format!(
+                    "Inconsistent row bracket types: expected '{}' and '{}', found '{}'",
+                    open, close, ch
+                ));
             }
         }
 
@@ -265,6 +278,51 @@ impl TextFormat {
 
         // No brackets found — return as-is and hope it's bare numbers
         trimmed
+    }
+
+    /// Validate that all brackets in the text are properly balanced and nested.
+    ///
+    /// Uses the classic stack-based "valid parentheses" algorithm.
+    /// Returns `Ok(())` if every bracket is matched and properly nested,
+    /// or `Err(description)` if the string is malformed.
+    fn validate_brackets(text: &str) -> Result<(), String> {
+        let mut stack: Vec<char> = Vec::new();
+
+        for ch in text.chars() {
+            match ch {
+                '(' | '[' | '{' => stack.push(ch),
+                ')' | ']' | '}' => {
+                    let expected_open = match ch {
+                        ')' => '(',
+                        ']' => '[',
+                        '}' => '{',
+                        _ => unreachable!(),
+                    };
+                    match stack.pop() {
+                        None => {
+                            return Err(format!(
+                                "Unexpected closing bracket '{}'",
+                                ch
+                            ));
+                        }
+                        Some(open) if open != expected_open => {
+                            return Err(format!(
+                                "Mismatched brackets: '{}' closed by '{}'",
+                                open, ch
+                            ));
+                        }
+                        _ => {} // correctly matched
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(ch) = stack.last() {
+            return Err(format!("Unclosed bracket '{}'", ch));
+        }
+
+        Ok(())
     }
 
     /// Detect outer bracket type and return (open, close, inner_content).
@@ -991,5 +1049,164 @@ mod tests {
         assert_eq!(rows[0], vec![1.0, 0.0, 0.0]);
         assert_eq!(rows[1], vec![0.0, 1.0, 0.0]);
         assert_eq!(rows[2], vec![0.0, 0.0, 1.0]);
+    }
+
+    // ===================================================================
+    // 8. Malformed brackets — vectors
+    // ===================================================================
+
+    #[test]
+    fn malformed_unclosed_square_bracket() {
+        let err = TextFormat::detect_and_parse("[1.0, 2.0, 3.0").unwrap_err();
+        assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_unexpected_close_bracket() {
+        let err = TextFormat::detect_and_parse("1.0, 2.0, 3.0]").unwrap_err();
+        assert!(err.contains("Unexpected"), "expected unexpected error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_mismatched_brackets_square_paren() {
+        // Opens with [ but closes with )
+        let err = TextFormat::detect_and_parse("[1.0, 2.0, 3.0)").unwrap_err();
+        assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_mismatched_brackets_paren_curly() {
+        let err = TextFormat::detect_and_parse("(1.0, 2.0, 3.0}").unwrap_err();
+        assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_interleaved_brackets() {
+        // Classic interleaving: ( [ ) ]
+        let err = TextFormat::detect_and_parse("(1.0, [2.0), 3.0]").unwrap_err();
+        assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_unclosed_curly() {
+        let err = TextFormat::detect_and_parse("{1.0, 2.0").unwrap_err();
+        assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_extra_open_paren() {
+        // Two opens, one close
+        let err = TextFormat::detect_and_parse("((1.0, 2.0, 3.0)").unwrap_err();
+        assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_extra_close_bracket() {
+        let err = TextFormat::detect_and_parse("[1.0, 2.0]]").unwrap_err();
+        assert!(err.contains("Unexpected"), "expected unexpected error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_nested_unclosed() {
+        // Inner bracket never closed
+        let err = TextFormat::detect_and_parse("[1.0, [2.0, 3.0]").unwrap_err();
+        assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_numpy_wrapper_bad_inner() {
+        // np.array wrapper with mismatched inner bracket
+        let err = TextFormat::detect_and_parse("np.array([1.0, 2.0, 3.0)").unwrap_err();
+        assert!(err.contains("Mismatched") || err.contains("Unclosed"),
+            "expected bracket error, got: {}", err);
+    }
+
+    // ===================================================================
+    // 9. Malformed brackets — matrices
+    // ===================================================================
+
+    #[test]
+    fn malformed_matrix_unclosed_outer() {
+        let err = TextFormat::detect_and_parse_matrix("[[1, 2], [3, 4]").unwrap_err();
+        assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_matrix_mismatched_inner() {
+        // Inner row bracket mismatched: [3, 4} instead of [3, 4]
+        let err = TextFormat::detect_and_parse_matrix("[[1, 2], [3, 4}]").unwrap_err();
+        assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_matrix_interleaved() {
+        // Interleaved: [ ( ] )
+        let err = TextFormat::detect_and_parse_matrix("[(1, 2], (3, 4))").unwrap_err();
+        assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_matrix_extra_open() {
+        let err = TextFormat::detect_and_parse_matrix("[[[1, 2], [3, 4]]").unwrap_err();
+        assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_matrix_mixed_row_bracket_types() {
+        // First row uses [] but second uses () — the outer [] is fine but inner
+        // brackets are inconsistent and should be detected
+        let err = TextFormat::detect_and_parse_matrix("[[1, 2], (3, 4)]").unwrap_err();
+        assert!(err.contains("Inconsistent"),
+            "expected inconsistent bracket error, got: {}", err);
+    }
+
+    // ===================================================================
+    // 10. Malformed brackets — quaternion / axis-angle parse helpers
+    // ===================================================================
+
+    #[test]
+    fn malformed_quaternion_unclosed_bracket() {
+        let err = parse_quaternion_str("[0.0, 0.0, 0.0, 1.0", QuaternionOrder::XYZW).unwrap_err();
+        assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_quaternion_mismatched_bracket() {
+        let err = parse_quaternion_str("[0.0, 0.0, 0.0, 1.0)", QuaternionOrder::XYZW).unwrap_err();
+        assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_quaternion_interleaved() {
+        let err = parse_quaternion_str("(0.0, [0.0), 0.0, 1.0]", QuaternionOrder::XYZW).unwrap_err();
+        assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_axis_angle_unclosed_bracket() {
+        let err = parse_axis_angle_3d_str("[0.1, 0.2, 0.3").unwrap_err();
+        assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
+    }
+
+    #[test]
+    fn malformed_axis_angle_mismatched_bracket() {
+        let err = parse_axis_angle_3d_str("{0.1, 0.2, 0.3)").unwrap_err();
+        assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
+    }
+
+    // ===================================================================
+    // 11. Inconsistent delimiters
+    // ===================================================================
+
+    #[test]
+    fn inconsistent_delimiters_comma_and_semicolon() {
+        // Mixing commas and semicolons in a vector — should fail
+        assert!(TextFormat::detect_and_parse("[1, 2; 3, 4]").is_err());
+    }
+
+    #[test]
+    fn inconsistent_delimiters_comma_and_space() {
+        // Mixing comma-separated and space-separated — should fail
+        assert!(TextFormat::detect_and_parse("[1, 2 3, 4]").is_err());
     }
 }
