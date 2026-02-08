@@ -3,15 +3,17 @@
 /// Auto-detected from pasted/typed input, then reused when formatting output text.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextFormat {
-    /// Delimiter between numbers within a vector, e.g. ", " or "," or " " or "\t"
+    /// Delimiter between numbers within a row/vector, e.g. ", " or "," or " " or "\t"
     pub number_delimiter: String,
-    /// Opening bracket for vectors, e.g. "[" or "(" or "{" or ""
+    /// Opening bracket for each row/vector, e.g. "[" or "(" or "{" or ""
     pub open_vector: String,
-    /// Closing bracket for vectors, e.g. "]" or ")" or "}" or ""
+    /// Closing bracket for each row/vector, e.g. "]" or ")" or "}" or ""
     pub close_vector: String,
-    /// Open brace for matrices, e.g. "{" "[" or ""
+    /// Delimiter between row vectors in a matrix, e.g. ", " or "; " or ","
+    pub vector_delimiter: String,
+    /// Opening bracket for the whole matrix, e.g. "[" or "{" or ""
     pub open_matrix: String,
-    /// Closing brace for matrices, e.g. "}" "]" or ""
+    /// Closing bracket for the whole matrix, e.g. "]" or "}" or ""
     pub close_matrix: String,
 }
 
@@ -21,6 +23,7 @@ impl Default for TextFormat {
             number_delimiter: ", ".to_string(),
             open_vector: "[".to_string(),
             close_vector: "]".to_string(),
+            vector_delimiter: ", ".to_string(),
             open_matrix: "[".to_string(),
             close_matrix: "]".to_string(),
         }
@@ -64,6 +67,7 @@ impl TextFormat {
             number_delimiter,
             open_vector,
             close_vector,
+            vector_delimiter: ", ".to_string(),
             open_matrix: String::new(),
             close_matrix: String::new(),
         };
@@ -98,119 +102,15 @@ impl TextFormat {
             return Err("Empty matrix content".to_string());
         }
 
-        // Check for nested bracket pattern (list-of-lists): [[...], [...], ...]
-        // or {{...}, {...}, ...} or ((...), (...), ...)
-        if let Some(result) =
-            Self::try_parse_nested_rows(inner, &open_matrix, &close_matrix)
-        {
-            return result;
-        }
+        // Detect how rows are separated and split into row content strings
+        let (open_vector, close_vector, vector_delimiter, row_contents) =
+            Self::detect_and_split_rows(inner)?;
 
-        // Check for Matlab-style semicolon-separated rows: [1 0 0; 0 1 0; 0 0 1]
-        if inner.contains(';') {
-            return Self::parse_semicolon_matrix(inner, open_matrix, close_matrix);
-        }
-
-        Err("Could not detect matrix format (expected nested brackets or semicolon-separated rows)".to_string())
-    }
-
-    /// Try to parse nested bracket rows like `[1, 2], [3, 4]` from the inner content.
-    fn try_parse_nested_rows(
-        inner: &str,
-        open_matrix: &str,
-        close_matrix: &str,
-    ) -> Option<Result<(TextFormat, Vec<Vec<f64>>), String>> {
-        // Determine which bracket type the inner rows use
-        let (row_open, row_close) = if inner.starts_with('[') {
-            ('[', ']')
-        } else if inner.starts_with('(') {
-            ('(', ')')
-        } else if inner.starts_with('{') {
-            ('{', '}')
-        } else {
-            return None; // No nested brackets found — not a list-of-lists pattern
-        };
-
-        // Split into row chunks by finding balanced bracket pairs
-        let row_strings = match Self::split_nested_rows(inner, row_open, row_close) {
-            Ok(rows) => rows,
-            Err(e) => return Some(Err(e)),
-        };
-
-        if row_strings.is_empty() {
-            return Some(Err("No rows found in matrix".to_string()));
-        }
-
+        // Parse each row using the same vector-parsing logic
         let mut rows = Vec::new();
         let mut number_delimiter = None;
 
-        for row_str in &row_strings {
-            match Self::detect_delimiter_and_parse(row_str) {
-                Ok((delim, nums)) => {
-                    if number_delimiter.is_none() {
-                        number_delimiter = Some(delim);
-                    }
-                    rows.push(nums);
-                }
-                Err(e) => return Some(Err(format!("Failed to parse matrix row: {}", e))),
-            }
-        }
-
-        let format = TextFormat {
-            number_delimiter: number_delimiter.unwrap_or_else(|| ", ".to_string()),
-            open_vector: row_open.to_string(),
-            close_vector: row_close.to_string(),
-            open_matrix: open_matrix.to_string(),
-            close_matrix: close_matrix.to_string(),
-        };
-
-        Some(Ok((format, rows)))
-    }
-
-    /// Split inner text into row substrings based on balanced bracket pairs.
-    /// Input: `[1, 2, 3], [4, 5, 6]`  → `vec!["1, 2, 3", "4, 5, 6"]`
-    fn split_nested_rows(inner: &str, open: char, close: char) -> Result<Vec<String>, String> {
-        let mut rows = Vec::new();
-        let mut depth = 0;
-        let mut content_start = None;
-
-        for (i, ch) in inner.char_indices() {
-            if ch == open {
-                if depth == 0 {
-                    content_start = Some(i + ch.len_utf8());
-                }
-                depth += 1;
-            } else if ch == close {
-                depth -= 1;
-                if depth == 0 {
-                    if let Some(cs) = content_start {
-                        rows.push(inner[cs..i].to_string());
-                    }
-                    content_start = None;
-                } else if depth < 0 {
-                    return Err("Unbalanced brackets in matrix".to_string());
-                }
-            }
-        }
-
-        if depth != 0 {
-            return Err("Unbalanced brackets in matrix".to_string());
-        }
-
-        Ok(rows)
-    }
-
-    /// Parse Matlab-style semicolon-separated matrix: `1 0 0; 0 1 0; 0 0 1`
-    fn parse_semicolon_matrix(
-        inner: &str,
-        open_matrix: String,
-        close_matrix: String,
-    ) -> Result<(TextFormat, Vec<Vec<f64>>), String> {
-        let row_strs: Vec<&str> = inner.split(';').collect();
-        let mut rows = Vec::new();
-        let mut number_delimiter = None;
-
-        for row_str in &row_strs {
+        for row_str in &row_contents {
             let trimmed = row_str.trim();
             if trimmed.is_empty() {
                 continue;
@@ -227,14 +127,118 @@ impl TextFormat {
         }
 
         let format = TextFormat {
-            number_delimiter: number_delimiter.unwrap_or_else(|| " ".to_string()),
-            open_vector: String::new(),
-            close_vector: String::new(),
+            number_delimiter: number_delimiter.unwrap_or_else(|| ", ".to_string()),
+            open_vector,
+            close_vector,
+            vector_delimiter,
             open_matrix,
             close_matrix,
         };
 
         Ok((format, rows))
+    }
+
+    /// Detect how rows are separated in inner matrix content and split into row strings.
+    ///
+    /// Returns `(open_vector, close_vector, vector_delimiter, row_contents)`.
+    ///
+    /// Handles two patterns:
+    /// - Nested brackets: `[1, 2], [3, 4]` or `{1, 2}, {3, 4}` or `(1, 2), (3, 4)`
+    /// - Delimiter-separated (Matlab-style): `1 0 0; 0 1 0; 0 0 1`
+    fn detect_and_split_rows(
+        inner: &str,
+    ) -> Result<(String, String, String, Vec<String>), String> {
+        let trimmed = inner.trim();
+
+        // Try nested brackets first
+        let bracket_pair = match trimmed.as_bytes().first() {
+            Some(b'[') => Some(('[', ']')),
+            Some(b'(') => Some(('(', ')')),
+            Some(b'{') => Some(('{', '}')),
+            _ => None,
+        };
+
+        if let Some((open, close)) = bracket_pair {
+            let (row_contents, vector_delimiter) =
+                Self::split_nested_rows(trimmed, open, close)?;
+            if !row_contents.is_empty() {
+                return Ok((
+                    open.to_string(),
+                    close.to_string(),
+                    vector_delimiter,
+                    row_contents,
+                ));
+            }
+        }
+
+        // Fall back to semicolon-separated rows (Matlab-style)
+        if trimmed.contains(';') {
+            let vector_delimiter = if trimmed.contains("; ") { "; " } else { ";" };
+            let rows: Vec<String> = trimmed
+                .split(';')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if !rows.is_empty() {
+                return Ok((
+                    String::new(),
+                    String::new(),
+                    vector_delimiter.to_string(),
+                    rows,
+                ));
+            }
+        }
+
+        Err("Could not detect matrix row format (expected nested brackets or semicolon-separated rows)".to_string())
+    }
+
+    /// Split inner text into row substrings by finding balanced bracket pairs,
+    /// and detect the vector delimiter from the text between closing and opening brackets.
+    ///
+    /// Input: `[1, 2, 3], [4, 5, 6]`  →  `(vec!["1, 2, 3", "4, 5, 6"], ", ")`
+    fn split_nested_rows(
+        inner: &str,
+        open: char,
+        close: char,
+    ) -> Result<(Vec<String>, String), String> {
+        let mut rows = Vec::new();
+        let mut depth = 0;
+        let mut content_start = None;
+        let mut vector_delimiter: Option<String> = None;
+        let mut last_close_end: Option<usize> = None;
+
+        for (i, ch) in inner.char_indices() {
+            if ch == open {
+                if depth == 0 {
+                    // Capture vector_delimiter from text between previous row's close and this open
+                    if vector_delimiter.is_none() {
+                        if let Some(lce) = last_close_end {
+                            vector_delimiter = Some(inner[lce..i].to_string());
+                        }
+                    }
+                    content_start = Some(i + ch.len_utf8());
+                }
+                depth += 1;
+            } else if ch == close {
+                depth -= 1;
+                if depth == 0 {
+                    if let Some(cs) = content_start {
+                        rows.push(inner[cs..i].to_string());
+                    }
+                    content_start = None;
+                    last_close_end = Some(i + ch.len_utf8());
+                } else if depth < 0 {
+                    return Err("Unbalanced brackets in matrix".to_string());
+                }
+            }
+        }
+
+        if depth != 0 {
+            return Err("Unbalanced brackets in matrix".to_string());
+        }
+
+        let delim = vector_delimiter.unwrap_or_else(|| ", ".to_string());
+        Ok((rows, delim))
     }
 
     /// Strip function-call wrappers to reach the core bracket/number content.
@@ -364,47 +368,20 @@ impl TextFormat {
     /// Format a 2D array of f64 values as a matrix string using this format's
     /// brackets and delimiters.
     ///
-    /// Produces different styles based on format fields:
-    /// - List-of-lists (open_vector non-empty): `[[1, 2, 3], [4, 5, 6]]`
-    /// - Matlab-style (open_vector empty): `[1 0 0; 0 1 0; 0 0 1]`
+    /// Each row is formatted as a vector (using `format_vector`), then rows are
+    /// joined by `vector_delimiter` and wrapped in matrix brackets. This handles
+    /// all styles uniformly:
+    /// - Python/JSON:  `[[1, 2, 3], [4, 5, 6]]`
+    /// - Matlab:       `[1 0 0; 0 1 0; 0 0 1]`
+    /// - C++:          `{{1, 2, 3}, {4, 5, 6}}`
     pub fn format_matrix(&self, rows: &[Vec<f64>]) -> String {
-        if self.open_vector.is_empty() && self.close_vector.is_empty() {
-            // Matlab-style: semicolon-separated rows within matrix brackets
-            let row_strs: Vec<String> = rows
-                .iter()
-                .map(|row| {
-                    row.iter()
-                        .map(|v| format_number(*v))
-                        .collect::<Vec<_>>()
-                        .join(&self.number_delimiter)
-                })
-                .collect();
-            format!(
-                "{}{}{}",
-                self.open_matrix,
-                row_strs.join("; "),
-                self.close_matrix
-            )
-        } else {
-            // List-of-lists style: each row wrapped in vector brackets
-            let row_strs: Vec<String> = rows
-                .iter()
-                .map(|row| {
-                    let inner = row
-                        .iter()
-                        .map(|v| format_number(*v))
-                        .collect::<Vec<_>>()
-                        .join(&self.number_delimiter);
-                    format!("{}{}{}", self.open_vector, inner, self.close_vector)
-                })
-                .collect();
-            format!(
-                "{}{}{}",
-                self.open_matrix,
-                row_strs.join(", "),
-                self.close_matrix
-            )
-        }
+        let row_strs: Vec<String> = rows.iter().map(|row| self.format_vector(row)).collect();
+        format!(
+            "{}{}{}",
+            self.open_matrix,
+            row_strs.join(&self.vector_delimiter),
+            self.close_matrix
+        )
     }
 }
 
@@ -638,6 +615,7 @@ mod tests {
         assert_eq!(fmt.open_vector, "[");
         assert_eq!(fmt.close_vector, "]");
         assert_eq!(fmt.number_delimiter, ", ");
+        assert_eq!(fmt.vector_delimiter, ", ");
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[0], vec![1.0, 2.0, 3.0]);
         assert_eq!(rows[2], vec![7.0, 8.0, 9.0]);
@@ -650,6 +628,7 @@ mod tests {
         assert_eq!(fmt.close_matrix, "}");
         assert_eq!(fmt.open_vector, "{");
         assert_eq!(fmt.close_vector, "}");
+        assert_eq!(fmt.vector_delimiter, ", ");
         assert_eq!(rows, vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
     }
 
@@ -658,9 +637,10 @@ mod tests {
         let (fmt, rows) = detect_matrix("[1 0 0; 0 1 0; 0 0 1]");
         assert_eq!(fmt.open_matrix, "[");
         assert_eq!(fmt.close_matrix, "]");
-        // Matlab-style: open_vector is empty
+        // Matlab-style: open_vector is empty, rows separated by "; "
         assert_eq!(fmt.open_vector, "");
         assert_eq!(fmt.close_vector, "");
+        assert_eq!(fmt.vector_delimiter, "; ");
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[0], vec![1.0, 0.0, 0.0]);
     }
@@ -670,6 +650,7 @@ mod tests {
         let (fmt, rows) = detect_matrix("np.array([[1, 0], [0, 1]])");
         assert_eq!(fmt.open_matrix, "[");
         assert_eq!(fmt.open_vector, "[");
+        assert_eq!(fmt.vector_delimiter, ", ");
         assert_eq!(rows, vec![vec![1.0, 0.0], vec![0.0, 1.0]]);
     }
 
@@ -680,6 +661,7 @@ mod tests {
         assert_eq!(fmt.close_matrix, ")");
         assert_eq!(fmt.open_vector, "(");
         assert_eq!(fmt.close_vector, ")");
+        assert_eq!(fmt.vector_delimiter, ", ");
         assert_eq!(rows, vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
     }
 
@@ -854,5 +836,160 @@ mod tests {
         let q = rot.as_quaternion();
         let expected_w = (angle / 2.0).cos();
         assert_approx_eq(q.w, expected_w, 1e-5, "w");
+    }
+
+    // ===================================================================
+    // 6. Uneven / irregular whitespace — vectors
+    // ===================================================================
+
+    #[test]
+    fn uneven_spaces_around_commas() {
+        // Python-style copy-paste where spaces around commas are inconsistent
+        let (_, nums) = detect("[1.0,  2.0,   3.0,4.0]");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn spaces_inside_brackets() {
+        // Extra whitespace padding inside brackets
+        let (fmt, nums) = detect("[  1.0, 2.0, 3.0  ]");
+        assert_eq!(fmt.open_vector, "[");
+        assert_eq!(fmt.close_vector, "]");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn mixed_spacing_around_commas() {
+        // Some commas have space after, some don't, some have multiple
+        let (_, nums) = detect("[1.0 , 2.0,  3.0 ,  4.0]");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn multiple_spaces_bare_numbers() {
+        // Python `print()` output or Matlab console with ragged spacing
+        let (_, nums) = detect("1.0   2.0  3.0    4.0");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn tabs_and_spaces_mixed() {
+        let (_, nums) = detect("1.0\t 2.0 \t3.0");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn newlines_in_vector_input() {
+        // Multi-line paste from Python REPL
+        let (_, nums) = detect("[1.0,\n 2.0,\n 3.0]");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn parens_uneven_whitespace() {
+        // Python tuple with uneven spacing
+        let (fmt, nums) = detect("( 0.0,  0.0, 0.0,  1.0 )");
+        assert_eq!(fmt.open_vector, "(");
+        assert_eq!(fmt.close_vector, ")");
+        assert_eq!(nums, vec![0.0, 0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn curly_braces_uneven_whitespace() {
+        let (fmt, nums) = detect("{  1, 2,  3 , 4  }");
+        assert_eq!(fmt.open_vector, "{");
+        assert_eq!(fmt.close_vector, "}");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn numpy_wrapper_inner_whitespace() {
+        // np.array with irregular spaces inside
+        let (_, nums) = detect("np.array([ 1.0,  2.0,   3.0 ])");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn numpy_wrapper_outer_whitespace() {
+        // Whitespace around the whole np.array expression
+        let (_, nums) = detect("  np.array([1.0, 2.0, 3.0])  ");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn rust_vec_macro_inner_whitespace() {
+        let (_, nums) = detect("vec![ 1.0,  2.0,   3.0 ]");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn semicolons_uneven_whitespace() {
+        let (_, nums) = detect("[1.0 ;  2.0;3.0 ; 4.0]");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn bare_commas_uneven_whitespace() {
+        // No brackets, comma-separated with ragged spacing
+        let (_, nums) = detect("1.0,  2.0,   3.0,4.0");
+        assert_eq!(nums, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    // ===================================================================
+    // 7. Uneven / irregular whitespace — matrices
+    // ===================================================================
+
+    #[test]
+    fn matrix_nested_uneven_whitespace() {
+        // Python list-of-lists with inconsistent spacing
+        let (_, rows) = detect_matrix("[ [1,  2, 3] , [ 4,5, 6 ],[7, 8,  9] ]");
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0], vec![1.0, 2.0, 3.0]);
+        assert_eq!(rows[1], vec![4.0, 5.0, 6.0]);
+        assert_eq!(rows[2], vec![7.0, 8.0, 9.0]);
+    }
+
+    #[test]
+    fn matrix_matlab_uneven_spaces() {
+        // Matlab with ragged spacing between numbers and around semicolons
+        let (_, rows) = detect_matrix("[1  0  0 ;  0 1  0;  0  0  1]");
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0], vec![1.0, 0.0, 0.0]);
+        assert_eq!(rows[1], vec![0.0, 1.0, 0.0]);
+        assert_eq!(rows[2], vec![0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn matrix_numpy_inner_whitespace() {
+        let (_, rows) = detect_matrix("np.array([ [ 1,  0],  [0, 1 ] ])");
+        assert_eq!(rows, vec![vec![1.0, 0.0], vec![0.0, 1.0]]);
+    }
+
+    #[test]
+    fn matrix_tuple_of_tuples_uneven_whitespace() {
+        let (_, rows) = detect_matrix("( ( 1.0 , 2.0) ,( 3.0,  4.0 ) )");
+        assert_eq!(rows, vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
+    }
+
+    #[test]
+    fn matrix_multiline_python_style() {
+        // Multi-line paste from a Python script or REPL
+        let input = "[\n  [1, 2, 3],\n  [4, 5, 6],\n  [7, 8, 9]\n]";
+        let (_, rows) = detect_matrix(input);
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0], vec![1.0, 2.0, 3.0]);
+        assert_eq!(rows[1], vec![4.0, 5.0, 6.0]);
+        assert_eq!(rows[2], vec![7.0, 8.0, 9.0]);
+    }
+
+    #[test]
+    fn matrix_matlab_multiline() {
+        // Matlab matrix pasted across lines
+        let input = "[1 0 0;\n 0 1 0;\n 0 0 1]";
+        let (_, rows) = detect_matrix(input);
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0], vec![1.0, 0.0, 0.0]);
+        assert_eq!(rows[1], vec![0.0, 1.0, 0.0]);
+        assert_eq!(rows[2], vec![0.0, 0.0, 1.0]);
     }
 }
