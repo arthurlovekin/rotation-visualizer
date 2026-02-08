@@ -5,7 +5,7 @@ use leptos::wasm_bindgen::JsCast;
 mod format;
 mod rotation;
 
-use format::TextFormat;
+use format::VectorFormat;
 use rotation::{AxisAngle, Quaternion, Rotation};
 
 /// Which text box the user is currently editing.
@@ -34,7 +34,7 @@ fn input_event_value(ev: &leptos::web_sys::Event) -> String {
 #[component]
 fn QuaternionBox(
     rotation: RwSignal<Rotation>,
-    format: RwSignal<TextFormat>,
+    format: RwSignal<VectorFormat>,
     active_input: RwSignal<ActiveInput>,
 ) -> impl IntoView {
     let (is_xyzw, set_is_xyzw) = signal(true);
@@ -63,17 +63,15 @@ fn QuaternionBox(
         text.set(value.clone());
         active_input.set(ActiveInput::Quaternion);
 
-        if let Ok((detected_fmt, nums)) = TextFormat::detect_and_parse(&value) {
-            if nums.len() == 4 {
-                format.set(detected_fmt);
-                let (w, x, y, z) = if is_xyzw.get_untracked() {
-                    (nums[3] as f32, nums[0] as f32, nums[1] as f32, nums[2] as f32)
-                } else {
-                    (nums[0] as f32, nums[1] as f32, nums[2] as f32, nums[3] as f32)
-                };
-                if let Ok(q) = Quaternion::try_new(w, x, y, z) {
-                    rotation.set(Rotation::from(q));
-                }
+        if let Ok((detected_fmt, nums)) = VectorFormat::detect_and_parse(&value, 4) {
+            format.set(detected_fmt);
+            let (w, x, y, z) = if is_xyzw.get_untracked() {
+                (nums[3] as f32, nums[0] as f32, nums[1] as f32, nums[2] as f32)
+            } else {
+                (nums[0] as f32, nums[1] as f32, nums[2] as f32, nums[3] as f32)
+            };
+            if let Ok(q) = Quaternion::try_new(w, x, y, z) {
+                rotation.set(Rotation::from(q));
             }
         }
     };
@@ -126,7 +124,7 @@ fn QuaternionBox(
 #[component]
 fn AxisAngle3DBox(
     rotation: RwSignal<Rotation>,
-    format: RwSignal<TextFormat>,
+    format: RwSignal<VectorFormat>,
     active_input: RwSignal<ActiveInput>,
 ) -> impl IntoView {
     let text = RwSignal::new(format.get_untracked().format_vector(&[0.0, 0.0, 0.0]));
@@ -151,17 +149,15 @@ fn AxisAngle3DBox(
         text.set(value.clone());
         active_input.set(ActiveInput::AxisAngle3D);
 
-        if let Ok((detected_fmt, nums)) = TextFormat::detect_and_parse(&value) {
-            if nums.len() == 3 {
-                format.set(detected_fmt);
-                let (ax, ay, az) = (nums[0] as f32, nums[1] as f32, nums[2] as f32);
-                let angle = (ax * ax + ay * ay + az * az).sqrt();
-                if angle > 1e-10 {
-                    let aa = AxisAngle::new(ax / angle, ay / angle, az / angle, angle);
-                    rotation.set(Rotation::from(aa));
-                } else {
-                    rotation.set(Rotation::default());
-                }
+        if let Ok((detected_fmt, nums)) = VectorFormat::detect_and_parse(&value, 3) {
+            format.set(detected_fmt);
+            let (ax, ay, az) = (nums[0] as f32, nums[1] as f32, nums[2] as f32);
+            let angle = (ax * ax + ay * ay + az * az).sqrt();
+            if angle > 1e-10 {
+                let aa = AxisAngle::new(ax / angle, ay / angle, az / angle, angle);
+                rotation.set(Rotation::from(aa));
+            } else {
+                rotation.set(Rotation::default());
             }
         }
     };
@@ -189,7 +185,7 @@ fn AxisAngle3DBox(
 #[component]
 fn App() -> impl IntoView {
     let rotation = RwSignal::new(Rotation::default());
-    let format = RwSignal::new(TextFormat::default());
+    let format = RwSignal::new(VectorFormat::default());
     let active_input = RwSignal::new(ActiveInput::None);
 
     view! {
