@@ -4,15 +4,45 @@ mod rotation;
 
 #[component]
 fn QuaternionBox() -> impl IntoView {
+    // Convention state: true = xyzw, false = wxyz
+    let (is_xyzw, set_is_xyzw) = signal(true);
+
     view! {
         <div>
             <h2>"Quaternion"</h2>
+            <div>
+                "Convention: "
+                <label>
+                    <input type="radio" name="quat-convention"
+                        checked={is_xyzw.get()}
+                        on:change=move |_| set_is_xyzw.set(true)
+                    /> "xyzw"
+                </label>
+                <label>
+                    <input type="radio" name="quat-convention"
+                        checked={!is_xyzw.get()}
+                        on:change=move |_| set_is_xyzw.set(false)
+                    /> "wxyz"
+                </label>
+            </div>
+            <input
+                type="text"
+                value="[0.0,0.0,0.0,1.0]"
+            />
+        </div>
+    }
+}
+
+#[component]
+fn AxisAngle3DBox() -> impl IntoView {
+    view! {
+        <div>
+            <h2>"Axis Angle (3d)"</h2>
+        </div>
         <input
             type="text"
-            value="[0.0,0.0,0.0,1.0]"
+            value="[0.0,0.0,0.0]"
         />
-        </div>
-
     }
 }
 
@@ -22,23 +52,8 @@ fn App() -> impl IntoView {
     view! {
         <h1>"Rotation Visualizer"</h1>
 
-        <button
-            on:click=move |_| *set_count.write() += 1
-            class:red=move || count.get() % 2 == 1
-        >
-            "Click me: "
-            {count}
-        </button>
-        <p>
-            "Double count: "
-            {move || count.get() * 2}
-        </p>
-        <progress
-            max="50"
-            // signals are functions, so `value=count` and `value=move || count.get()`
-            // are interchangeable.
-            value=count
-        />
+        <QuaternionBox />
+        <AxisAngle3DBox />
     }
 }
 
