@@ -1,15 +1,40 @@
 use std::ops::Mul;
 
-#[derive(Debug, Clone, Copy)]
-pub struct Quaternion {w: f32, x: f32, y: f32, z: f32}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Quaternion {
+    pub w: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
 
 impl Quaternion {
+    /// Create a new unit quaternion (normalizes the input).
+    /// Panics if the input is a zero quaternion.
     pub fn new(w: f32, x: f32, y: f32, z: f32) -> Self {
+        Self::try_new(w, x, y, z)
+            .expect("Quaternion is zero, did you mean to create [0.0,0.0,0.0,1.0]?")
+    }
+
+    /// Try to create a new unit quaternion. Returns Err for zero quaternions.
+    pub fn try_new(w: f32, x: f32, y: f32, z: f32) -> Result<Self, String> {
         let norm = (w * w + x * x + y * y + z * z).sqrt();
-        if norm == 0.0 { 
-            panic!("Quaternion is zero, did you mean to create [0.0,0.0,0.0,1.0]?");
+        if norm == 0.0 {
+            return Err("Quaternion is zero".to_string());
         }
-        Self { w: w / norm, x: x / norm, y: y / norm, z: z / norm }
+        Ok(Self {
+            w: w / norm,
+            x: x / norm,
+            y: y / norm,
+            z: z / norm,
+        })
+    }
+}
+
+impl Default for Quaternion {
+    /// The identity quaternion (no rotation).
+    fn default() -> Self {
+        Self { w: 1.0, x: 0.0, y: 0.0, z: 0.0 }
     }
 }
 
@@ -26,12 +51,12 @@ impl Mul for Quaternion {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AxisAngle {
-    x: f32,
-    y: f32,
-    z: f32,
-    angle: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub angle: f32,
 }
 
 impl AxisAngle {
@@ -41,13 +66,8 @@ impl AxisAngle {
 
     pub fn as_quaternion<T: From<Quaternion>>(&self) -> T {
         let half = self.angle / 2.0;
-        let s = half.sin(); 
-        Quaternion::new(
-            half.cos(),
-            self.x * s,
-            self.y * s,
-            self.z * s,
-        ).into()
+        let s = half.sin();
+        Quaternion::new(half.cos(), self.x * s, self.y * s, self.z * s).into()
     }
 
     pub fn from_quaternion(quat: Quaternion) -> Self {
@@ -61,19 +81,14 @@ impl AxisAngle {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rotation {
     quat: Quaternion,
 }
 
-impl From<Quaternion> for Rotation {
-    fn from(quat: Quaternion) -> Self {
-        Rotation { quat }
-    }
-}
-
-impl From<AxisAngle> for Rotation {
-    fn from(axis_angle: AxisAngle) -> Self {
-        Rotation { quat: axis_angle.as_quaternion() }
+impl Default for Rotation {
+    fn default() -> Self {
+        Self { quat: Quaternion::default() }
     }
 }
 
@@ -87,10 +102,26 @@ impl Rotation {
     }
 }
 
+impl From<Quaternion> for Rotation {
+    fn from(quat: Quaternion) -> Self {
+        Rotation { quat }
+    }
+}
+
+impl From<AxisAngle> for Rotation {
+    fn from(axis_angle: AxisAngle) -> Self {
+        Rotation {
+            quat: axis_angle.as_quaternion(),
+        }
+    }
+}
+
 impl Mul for Rotation {
     type Output = Rotation;
 
     fn mul(self, other: Rotation) -> Rotation {
-        Rotation { quat: self.quat * other.quat }
+        Rotation {
+            quat: self.quat * other.quat,
+        }
     }
 }
