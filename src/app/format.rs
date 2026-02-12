@@ -1,21 +1,12 @@
 /// A 
 
-#[derive(Debug, Clone, PartialEq)]
-enum NumberDelimiter {
-    Space,
-    Comma,
-    Tab,
-    Semicolon,
-    Newline,
-}
-
 /// Represents the text format detected from user input for a vector of numbers.
 /// Stores the delimiter and bracket scheme used for representing vectors as text.
 /// Auto-detected from pasted/typed input, then reused when formatting output text.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VectorFormat {
-    /// Delimiter between numbers, e.g. ", " or "," or " " or "\t"
-    pub number_delimiter: NumberDelimiter,
+    /// Delimiter char between numbers: ',', ' ', '\t', ';', or '\n'
+    pub number_delimiter: char,
     /// Opening bracket char: '[', '(', '{', or ' ' for bare (no brackets)
     pub bracket_type: char,
     /// Prefix before the vector (eg. `np.array(`)
@@ -27,7 +18,7 @@ pub struct VectorFormat {
 impl Default for VectorFormat {
     fn default() -> Self {
         Self {
-            number_delimiter: NumberDelimiter::Comma,
+            number_delimiter: ',',
             bracket_type: '[',
             prefix: String::new(),
             suffix: String::new(),
@@ -41,23 +32,11 @@ impl VectorFormat {
         result.push_str(&self.prefix);
         for (i, value) in values.iter().enumerate() {
             if i > 0 {
-                result.push_str(&self.number_delimiter.to_string());
+                result.push(self.number_delimiter);
             }
         }
         result.push_str(&self.suffix);
         result
-    }
-}
-
-impl std::fmt::Display for NumberDelimiter {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NumberDelimiter::Comma => write!(f, ", "),
-            NumberDelimiter::Space => write!(f, " "),
-            NumberDelimiter::Tab => write!(f, "\t"),
-            NumberDelimiter::Semicolon => write!(f, "; "),
-            NumberDelimiter::Newline => write!(f, "\n"),
-        }
     }
 }
 
@@ -130,7 +109,7 @@ fn parse_number_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Vec<f6
 
 /// Detects the delimiter type from the content string and parses all numbers.
 /// Priority order: comma > semicolon > tab > newline > space.
-fn detect_delimiter_and_parse(content: &str) -> Result<(NumberDelimiter, Vec<f64>), String> {
+fn detect_delimiter_and_parse(content: &str) -> Result<(char, Vec<f64>), String> {
     let has_comma = content.contains(',');
     let has_semicolon = content.contains(';');
     let has_tab = content.contains('\t');
@@ -138,16 +117,16 @@ fn detect_delimiter_and_parse(content: &str) -> Result<(NumberDelimiter, Vec<f64
 
     if has_comma {
         let numbers = parse_number_parts(content.split(','))?;
-        Ok((NumberDelimiter::Comma, numbers))
+        Ok((',', numbers))
     } else if has_semicolon {
         let numbers = parse_number_parts(content.split(';'))?;
-        Ok((NumberDelimiter::Semicolon, numbers))
+        Ok((';', numbers))
     } else if has_tab {
         let numbers = parse_number_parts(content.split('\t'))?;
-        Ok((NumberDelimiter::Tab, numbers))
+        Ok(('\t', numbers))
     } else if has_newline {
         let numbers = parse_number_parts(content.split('\n'))?;
-        Ok((NumberDelimiter::Newline, numbers))
+        Ok(('\n', numbers))
     } else {
         // Space-delimited: split_whitespace handles multiple spaces and trimming.
         let parts: Vec<&str> = content.split_whitespace().collect();
@@ -161,7 +140,7 @@ fn detect_delimiter_and_parse(content: &str) -> Result<(NumberDelimiter, Vec<f64
                 .map_err(|e| format!("Failed to parse '{}' as a number: {}", part, e))?;
             numbers.push(num);
         }
-        Ok((NumberDelimiter::Space, numbers))
+        Ok((' ', numbers))
     }
 }
 
@@ -234,7 +213,7 @@ mod tests {
         let input = "[1.0, 2.0, 3.0, 4.0]";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -247,7 +226,7 @@ mod tests {
         let input = "(0.0, 0.0, 0.0, 1.0)";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '(');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
         
@@ -260,7 +239,7 @@ mod tests {
         let input = "{1,2,3,4}";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '{');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -273,7 +252,7 @@ mod tests {
         let input = "1.0 2.0 3.0 4.0";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, ' ');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Space);
+        assert_eq!(fmt.number_delimiter, ' ');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -286,7 +265,7 @@ mod tests {
         let input = "1.0, 2.0, 3.0";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, ' ');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -299,7 +278,7 @@ mod tests {
         let input = "1.0\t2.0\t3.0";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, ' ');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Tab);
+        assert_eq!(fmt.number_delimiter, '\t');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -312,7 +291,7 @@ mod tests {
         let input = "[1.0; 2.0; 3.0; 4.0]";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Semicolon);
+        assert_eq!(fmt.number_delimiter, ';');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -325,7 +304,7 @@ mod tests {
         let input = "np.array([0.0, 0.0, 0.0, 1.0])";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "np.array(");
         assert_eq!(fmt.suffix, ")");
 
@@ -338,7 +317,7 @@ mod tests {
         let input = "vec![1.0, 2.0, 3.0]";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "vec!");
         assert_eq!(fmt.suffix, "");
 
@@ -351,7 +330,7 @@ mod tests {
         let input = "[-1.0, 2.0, -3.5]";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -364,7 +343,7 @@ mod tests {
         let input = "  [1.0, 2.0, 3.0]  ";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "  ");
         assert_eq!(fmt.suffix, "  ");
 
@@ -445,7 +424,7 @@ mod tests {
         let input = "1.0\t 2.0 \t3.0";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, ' ');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Tab);
+        assert_eq!(fmt.number_delimiter, '\t');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -459,7 +438,7 @@ mod tests {
         let input = "[1.0,\n 2.0,\n 3.0]";
         let fmt = parse_vector_format(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
-        assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
+        assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
