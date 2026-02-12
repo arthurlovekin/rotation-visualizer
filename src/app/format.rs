@@ -1,5 +1,3 @@
-/// A 
-
 /// Represents the text format detected from user input for a vector of numbers.
 /// Stores the delimiter and bracket scheme used for representing vectors as text.
 /// Auto-detected from pasted/typed input, then reused when formatting output text.
@@ -144,9 +142,7 @@ fn detect_delimiter_and_parse(content: &str) -> Result<(char, Vec<f64>), String>
     }
 }
 
-/// Shared implementation: validates brackets, locates the vector region
-/// (innermost bracket pair), detects the delimiter, and parses numbers.
-fn parse_vector_inner(input: &str) -> Result<(Vec<f64>, VectorFormat), String> {
+pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f64; N], VectorFormat), String> {
     if input.trim().is_empty() {
         return Err("Empty input".to_string());
     }
@@ -173,8 +169,14 @@ fn parse_vector_inner(input: &str) -> Result<(Vec<f64>, VectorFormat), String> {
 
     let (delimiter, numbers) = detect_delimiter_and_parse(content)?;
 
+    if numbers.len() != N {
+        return Err(format!("Expected {} numbers, got {}", N, numbers.len()));
+    }
+    let mut arr = [0.0; N];
+    arr.copy_from_slice(&numbers);
+
     Ok((
-        numbers,
+        arr,
         VectorFormat {
             number_delimiter: delimiter,
             bracket_type,
@@ -182,21 +184,6 @@ fn parse_vector_inner(input: &str) -> Result<(Vec<f64>, VectorFormat), String> {
             suffix,
         },
     ))
-}
-
-pub fn parse_vector<const N: usize>(input: &str) -> Result<[f64; N], String> {
-    let (numbers, _) = parse_vector_inner(input)?;
-    if numbers.len() != N {
-        return Err(format!("Expected {} numbers, got {}", N, numbers.len()));
-    }
-    let mut arr = [0.0; N];
-    arr.copy_from_slice(&numbers);
-    Ok(arr)
-}
-
-pub fn parse_vector_format(input: &str) -> Result<VectorFormat, String> {
-    let (_, format) = parse_vector_inner(input)?;
-    Ok(format)
 }
 
 
@@ -211,171 +198,148 @@ mod tests {
     #[test]
     fn square_bracket_comma_space() {
         let input = "[1.0, 2.0, 3.0, 4.0]";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
     #[test]
     fn paren_comma_space() {
         let input = "(0.0, 0.0, 0.0, 1.0)";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(fmt.bracket_type, '(');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-        
-        let vector = parse_vector::<4>(input).unwrap();
         assert_eq!(vector, [0.0, 0.0, 0.0, 1.0]);
     }
 
     #[test]
     fn curly_comma_no_space() {
         let input = "{1,2,3,4}";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(fmt.bracket_type, '{');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
     #[test]
     fn bare_space_separated() {
         let input = "1.0 2.0 3.0 4.0";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(fmt.bracket_type, ' ');
         assert_eq!(fmt.number_delimiter, ' ');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
     #[test]
     fn bare_comma_separated() {
         let input = "1.0, 2.0, 3.0";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(fmt.bracket_type, ' ');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
     #[test]
     fn tab_separated() {
         let input = "1.0\t2.0\t3.0";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(fmt.bracket_type, ' ');
         assert_eq!(fmt.number_delimiter, '\t');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
     #[test]
     fn semicolon_separated_vector() {
         let input = "[1.0; 2.0; 3.0; 4.0]";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, ';');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
     #[test]
     fn numpy_wrapper_stripped() {
         let input = "np.array([0.0, 0.0, 0.0, 1.0])";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "np.array(");
         assert_eq!(fmt.suffix, ")");
-
-        let vector = parse_vector::<4>(input).unwrap();
         assert_eq!(vector, [0.0, 0.0, 0.0, 1.0]);
     }
 
     #[test]
     fn rust_vec_macro_stripped() {
         let input = "vec![1.0, 2.0, 3.0]";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "vec!");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
     #[test]
     fn negative_numbers() {
         let input = "[-1.0, 2.0, -3.5]";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<3>(input).unwrap();
         assert_eq!(vector, [-1.0, 2.0, -3.5]);
     }
 
     #[test]
     fn leading_trailing_whitespace() {
         let input = "  [1.0, 2.0, 3.0]  ";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "  ");
         assert_eq!(fmt.suffix, "  ");
-
-        let vector = parse_vector::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
     #[test]
     fn empty_input_is_err() {
-        assert!(parse_vector::<4>("").is_err());
-        assert!(parse_vector_format("").is_err() || parse_vector::<4>("").is_err());
-        assert!(parse_vector_format("   ").is_err() || parse_vector::<4>("   ").is_err());
+        assert!(parse_vector_and_format::<4>("").is_err());
+        assert!(parse_vector_and_format::<4>("   ").is_err());
     }
 
     #[test]
     fn no_numbers_is_err() {
-        assert!(parse_vector::<4>("[]").is_err());
+        assert!(parse_vector_and_format::<4>("[]").is_err());
     }
 
     #[test]
     fn integers_parsed_as_floats() {
         let input = "[1, 0, 0, 0]";
-        let vector = parse_vector::<4>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 0.0, 0.0, 0.0]);
     }
 
     #[test]
     fn wrong_count_is_err() {
         // Expect 4 but get 3
-        assert!(parse_vector::<4>("[1.0, 2.0, 3.0]").is_err());
+        assert!(parse_vector_and_format::<4>("[1.0, 2.0, 3.0]").is_err());
         // Expect 3 but get 4
-        assert!(parse_vector::<3>("[1.0, 2.0, 3.0, 4.0]").is_err());
+        assert!(parse_vector_and_format::<3>("[1.0, 2.0, 3.0, 4.0]").is_err());
     }
 
     // ===================================================================
@@ -386,7 +350,7 @@ mod tests {
     fn uneven_spaces_around_commas() {
         // Python-style copy-paste where spaces around commas are inconsistent
         let input = "[1.0,  2.0,   3.0,4.0]";
-        let vector = parse_vector::<4>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
@@ -394,12 +358,10 @@ mod tests {
     fn spaces_inside_brackets() {
         // Extra whitespace padding inside brackets
         let input = "[  1.0, 2.0, 3.0  ]";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
@@ -407,7 +369,7 @@ mod tests {
     fn mixed_spacing_around_commas() {
         // Some commas have space after, some don't, some have multiple
         let input = "[1.0 , 2.0,  3.0 ,  4.0]";
-        let vector = parse_vector::<4>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
@@ -415,20 +377,18 @@ mod tests {
     fn multiple_spaces_bare_numbers() {
         // Python `print()` output or Matlab console with ragged spacing
         let input = "1.0   2.0  3.0    4.0";
-        let vector = parse_vector::<4>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
     #[test]
     fn tabs_and_spaces_mixed() {
         let input = "1.0\t 2.0 \t3.0";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(fmt.bracket_type, ' ');
         assert_eq!(fmt.number_delimiter, '\t');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
@@ -436,13 +396,11 @@ mod tests {
     fn newlines_in_vector_input() {
         // Multi-line paste from Python REPL
         let input = "[1.0,\n 2.0,\n 3.0]";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, ',');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
@@ -450,24 +408,20 @@ mod tests {
     fn parens_uneven_whitespace() {
         // Python tuple with uneven spacing
         let input = "( 0.0,  0.0, 0.0,  1.0 )";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(fmt.bracket_type, '(');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<4>(input).unwrap();
         assert_eq!(vector, [0.0, 0.0, 0.0, 1.0]);
     }
 
     #[test]
     fn curly_braces_uneven_whitespace() {
         let input = "{  1, 2,  3 , 4  }";
-        let fmt = parse_vector_format(input).unwrap();
+        let (vector, fmt) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(fmt.bracket_type, '{');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
-
-        let vector = parse_vector::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
@@ -475,7 +429,7 @@ mod tests {
     fn numpy_wrapper_inner_whitespace() {
         // np.array with irregular spaces inside
         let input = "np.array([ 1.0,  2.0,   3.0 ])";
-        let vector = parse_vector::<3>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
@@ -483,21 +437,21 @@ mod tests {
     fn numpy_wrapper_outer_whitespace() {
         // Whitespace around the whole np.array expression
         let input = "  np.array([1.0, 2.0, 3.0])  ";
-        let vector = parse_vector::<3>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
     #[test]
     fn rust_vec_macro_inner_whitespace() {
         let input = "vec![ 1.0,  2.0,   3.0 ]";
-        let vector = parse_vector::<3>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<3>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0]);
     }
 
     #[test]
     fn semicolons_uneven_whitespace() {
         let input = "[1.0 ;  2.0;3.0 ; 4.0]";
-        let vector = parse_vector::<4>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
@@ -505,7 +459,7 @@ mod tests {
     fn bare_commas_uneven_whitespace() {
         // No brackets, comma-separated with ragged spacing
         let input = "1.0,  2.0,   3.0,4.0";
-        let vector = parse_vector::<4>(input).unwrap();
+        let (vector, _) = parse_vector_and_format::<4>(input).unwrap();
         assert_eq!(vector, [1.0, 2.0, 3.0, 4.0]);
     }
 
@@ -515,66 +469,66 @@ mod tests {
 
     #[test]
     fn malformed_unclosed_square_bracket() {
-        let err = parse_vector::<3>("[1.0, 2.0, 3.0").unwrap_err();
+        let err = parse_vector_and_format::<3>("[1.0, 2.0, 3.0").unwrap_err();
         assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
     }
 
     #[test]
     fn malformed_unexpected_close_bracket() {
-        let err = parse_vector::<3>("1.0, 2.0, 3.0]").unwrap_err();
+        let err = parse_vector_and_format::<3>("1.0, 2.0, 3.0]").unwrap_err();
         assert!(err.contains("Unexpected"), "expected unexpected error, got: {}", err);
     }
 
     #[test]
     fn malformed_mismatched_brackets_square_paren() {
         // Opens with [ but closes with )
-        let err = parse_vector::<3>("[1.0, 2.0, 3.0)").unwrap_err();
+        let err = parse_vector_and_format::<3>("[1.0, 2.0, 3.0)").unwrap_err();
         assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
     }
 
     #[test]
     fn malformed_mismatched_brackets_paren_curly() {
-        let err = parse_vector::<3>("(1.0, 2.0, 3.0}").unwrap_err();
+        let err = parse_vector_and_format::<3>("(1.0, 2.0, 3.0}").unwrap_err();
         assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
     }
 
     #[test]
     fn malformed_interleaved_brackets() {
         // Classic interleaving: ( [ ) ]
-        let err = parse_vector::<3>("(1.0, [2.0), 3.0]").unwrap_err();
+        let err = parse_vector_and_format::<3>("(1.0, [2.0), 3.0]").unwrap_err();
         assert!(err.contains("Mismatched"), "expected mismatch error, got: {}", err);
     }
 
     #[test]
     fn malformed_unclosed_curly() {
-        let err = parse_vector::<2>("{1.0, 2.0").unwrap_err();
+        let err = parse_vector_and_format::<2>("{1.0, 2.0").unwrap_err();
         assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
     }
 
     #[test]
     fn malformed_extra_open_paren() {
         // Two opens, one close
-        let err = parse_vector::<3>("((1.0, 2.0, 3.0)").unwrap_err();
+        let err = parse_vector_and_format::<3>("((1.0, 2.0, 3.0)").unwrap_err();
         assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
     }
 
     #[test]
     fn malformed_extra_close_bracket() {
-        let err = parse_vector::<2>("[1.0, 2.0]]").unwrap_err();
+        let err = parse_vector_and_format::<2>("[1.0, 2.0]]").unwrap_err();
         assert!(err.contains("Unexpected"), "expected unexpected error, got: {}", err);
     }
 
     #[test]
     fn malformed_nested_unclosed() {
         // Inner bracket never closed
-        let err = parse_vector::<3>("[1.0, [2.0, 3.0]").unwrap_err();
+        let err = parse_vector_and_format::<3>("[1.0, [2.0, 3.0]").unwrap_err();
         assert!(err.contains("Unclosed"), "expected unclosed error, got: {}", err);
     }
 
     #[test]
     fn malformed_numpy_wrapper_bad_inner() {
         // np.array wrapper with mismatched inner bracket
-        let err = parse_vector::<3>("np.array([1.0, 2.0, 3.0)").unwrap_err();
+        let err = parse_vector_and_format::<3>("np.array([1.0, 2.0, 3.0)").unwrap_err();
         assert!(err.contains("Mismatched") || err.contains("Unclosed"),
             "expected bracket error, got: {}", err);
     }
@@ -586,17 +540,17 @@ mod tests {
     #[test]
     fn inconsistent_delimiters_comma_and_semicolon() {
         // Mixing commas and semicolons in a vector — should fail
-        assert!(parse_vector::<4>("[1, 2; 3, 4]").is_err());
+        assert!(parse_vector_and_format::<4>("[1, 2; 3, 4]").is_err());
     }
 
     #[test]
     fn inconsistent_delimiters_comma_and_space() {
         // Mixing comma-separated and space-separated — should fail
-        assert!(parse_vector::<4>("[1, 2 3, 4]").is_err());
+        assert!(parse_vector_and_format::<4>("[1, 2 3, 4]").is_err());
     }
 
     #[test]
     fn no_delimeter_is_err() {
-        assert!(parse_vector::<3>("[1.02.03.0]").is_err());
+        assert!(parse_vector_and_format::<3>("[1.02.03.0]").is_err());
     }
 }
