@@ -1,14 +1,6 @@
 /// A 
 
 #[derive(Debug, Clone, PartialEq)]
-enum BracketType {
-    Square,
-    Parentheses,
-    Curly,
-    None,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 enum NumberDelimiter {
     Space,
     Comma,
@@ -24,8 +16,8 @@ enum NumberDelimiter {
 pub struct VectorFormat {
     /// Delimiter between numbers, e.g. ", " or "," or " " or "\t"
     pub number_delimiter: NumberDelimiter,
-    /// Opening bracket, e.g. "[" or "(" or "{" or ""
-    pub bracket_type: BracketType,
+    /// Opening bracket char: '[', '(', '{', or ' ' for bare (no brackets)
+    pub bracket_type: char,
     /// Prefix before the vector (eg. `np.array(`)
     pub prefix: String,
     /// Suffix after the vector (eg. `)`)
@@ -36,7 +28,7 @@ impl Default for VectorFormat {
     fn default() -> Self {
         Self {
             number_delimiter: NumberDelimiter::Comma,
-            bracket_type: BracketType::Square,
+            bracket_type: '[',
             prefix: String::new(),
             suffix: String::new(),
         }
@@ -81,7 +73,7 @@ impl std::fmt::Display for NumberDelimiter {
 
 /// Validates bracket matching using a stack (like the "valid parentheses" problem).
 /// Returns a list of matched bracket pairs: (open_pos, close_pos, bracket_type).
-fn validate_brackets(input: &str) -> Result<Vec<(usize, usize, BracketType)>, String> {
+fn validate_brackets(input: &str) -> Result<Vec<(usize, usize, char)>, String> {
     let mut stack: Vec<(usize, char)> = Vec::new();
     let mut pairs = Vec::new();
 
@@ -104,13 +96,7 @@ fn validate_brackets(input: &str) -> Result<Vec<(usize, usize, BracketType)>, St
                         open_ch, open_pos, ch, i
                     ));
                 }
-                let bracket_type = match open_ch {
-                    '[' => BracketType::Square,
-                    '(' => BracketType::Parentheses,
-                    '{' => BracketType::Curly,
-                    _ => unreachable!(),
-                };
-                pairs.push((open_pos, i, bracket_type));
+                pairs.push((open_pos, i, open_ch));
             }
             _ => {}
         }
@@ -190,17 +176,17 @@ fn parse_vector_inner(input: &str) -> Result<(Vec<f64>, VectorFormat), String> {
 
     let (content, bracket_type, prefix, suffix) = if pairs.is_empty() {
         // Bare vector (no brackets): the whole input is the vector content.
-        (input, BracketType::None, String::new(), String::new())
+        (input, ' ', String::new(), String::new())
     } else {
         // The vector bracket is the innermost matched pair (largest open_pos).
         // Outer brackets (e.g. the parens in `np.array(...)`) become prefix/suffix.
-        let &(open_pos, close_pos, ref bt) = pairs
+        let &(open_pos, close_pos, bt) = pairs
             .iter()
             .max_by_key(|(open, _, _)| *open)
             .unwrap();
         (
             &input[open_pos + 1..close_pos],
-            bt.clone(),
+            bt,
             input[..open_pos].to_string(),
             input[close_pos + 1..].to_string(),
         )
@@ -247,7 +233,7 @@ mod tests {
     fn square_bracket_comma_space() {
         let input = "[1.0, 2.0, 3.0, 4.0]";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Square);
+        assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -260,7 +246,7 @@ mod tests {
     fn paren_comma_space() {
         let input = "(0.0, 0.0, 0.0, 1.0)";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Parentheses);
+        assert_eq!(fmt.bracket_type, '(');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -273,7 +259,7 @@ mod tests {
     fn curly_comma_no_space() {
         let input = "{1,2,3,4}";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Curly);
+        assert_eq!(fmt.bracket_type, '{');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -286,7 +272,7 @@ mod tests {
     fn bare_space_separated() {
         let input = "1.0 2.0 3.0 4.0";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::None);
+        assert_eq!(fmt.bracket_type, ' ');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Space);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -299,7 +285,7 @@ mod tests {
     fn bare_comma_separated() {
         let input = "1.0, 2.0, 3.0";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::None);
+        assert_eq!(fmt.bracket_type, ' ');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -312,7 +298,7 @@ mod tests {
     fn tab_separated() {
         let input = "1.0\t2.0\t3.0";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::None);
+        assert_eq!(fmt.bracket_type, ' ');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Tab);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -325,7 +311,7 @@ mod tests {
     fn semicolon_separated_vector() {
         let input = "[1.0; 2.0; 3.0; 4.0]";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Square);
+        assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Semicolon);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -338,7 +324,7 @@ mod tests {
     fn numpy_wrapper_stripped() {
         let input = "np.array([0.0, 0.0, 0.0, 1.0])";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Square);
+        assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "np.array(");
         assert_eq!(fmt.suffix, ")");
@@ -351,7 +337,7 @@ mod tests {
     fn rust_vec_macro_stripped() {
         let input = "vec![1.0, 2.0, 3.0]";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Square);
+        assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "vec!");
         assert_eq!(fmt.suffix, "");
@@ -364,7 +350,7 @@ mod tests {
     fn negative_numbers() {
         let input = "[-1.0, 2.0, -3.5]";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Square);
+        assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -377,7 +363,7 @@ mod tests {
     fn leading_trailing_whitespace() {
         let input = "  [1.0, 2.0, 3.0]  ";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Square);
+        assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "  ");
         assert_eq!(fmt.suffix, "  ");
@@ -430,7 +416,7 @@ mod tests {
         // Extra whitespace padding inside brackets
         let input = "[  1.0, 2.0, 3.0  ]";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Square);
+        assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -458,7 +444,7 @@ mod tests {
     fn tabs_and_spaces_mixed() {
         let input = "1.0\t 2.0 \t3.0";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::None);
+        assert_eq!(fmt.bracket_type, ' ');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Tab);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -472,7 +458,7 @@ mod tests {
         // Multi-line paste from Python REPL
         let input = "[1.0,\n 2.0,\n 3.0]";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Square);
+        assert_eq!(fmt.bracket_type, '[');
         assert_eq!(fmt.number_delimiter, NumberDelimiter::Comma);
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
@@ -486,7 +472,7 @@ mod tests {
         // Python tuple with uneven spacing
         let input = "( 0.0,  0.0, 0.0,  1.0 )";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Parentheses);
+        assert_eq!(fmt.bracket_type, '(');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -498,7 +484,7 @@ mod tests {
     fn curly_braces_uneven_whitespace() {
         let input = "{  1, 2,  3 , 4  }";
         let fmt = parse_vector_format(input).unwrap();
-        assert_eq!(fmt.bracket_type, BracketType::Curly);
+        assert_eq!(fmt.bracket_type, '{');
         assert_eq!(fmt.prefix, "");
         assert_eq!(fmt.suffix, "");
 
@@ -630,6 +616,7 @@ mod tests {
         assert!(parse_vector::<4>("[1, 2 3, 4]").is_err());
     }
 
+    #[test]
     fn no_delimeter_is_err() {
         assert!(parse_vector::<3>("[1.02.03.0]").is_err());
     }
