@@ -153,6 +153,18 @@ pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f64; N],
         // Bare vector (no brackets): the whole input is the vector content.
         (input, ' ', String::new(), String::new())
     } else {
+        // Reject multiple vectors: leaf bracket pairs are those containing no
+        // nested brackets.  More than one leaf means multiple vectors.
+        let leaf_count = pairs
+            .iter()
+            .filter(|&&(open, close, _)| {
+                !pairs.iter().any(|&(o2, c2, _)| o2 > open && c2 < close)
+            })
+            .count();
+        if leaf_count > 1 {
+            return Err("Multiple vectors found in input".to_string());
+        }
+
         // The vector bracket is the innermost matched pair (largest open_pos).
         // Outer brackets (e.g. the parens in `np.array(...)`) become prefix/suffix.
         let &(open_pos, close_pos, bt) = pairs
@@ -674,6 +686,24 @@ mod tests {
     #[test]
     fn no_delimeter_is_err() {
         assert!(parse_vector_and_format::<3>("[1.02.03.0]").is_err());
+    }
+
+    #[test]
+    fn two_bracketed_vectors_is_err() {
+        let err = parse_vector_and_format::<3>("[1.0, 2.0, 3.0] [4.0,5.0,6.0]").unwrap_err();
+        assert!(err.contains("Multiple"), "expected multiple-vector error, got: {}", err);
+    }
+
+    #[test]
+    fn two_bracketed_vectors_comma_separated_is_err() {
+        let err = parse_vector_and_format::<3>("[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]").unwrap_err();
+        assert!(err.contains("Multiple"), "expected multiple-vector error, got: {}", err);
+    }
+
+    #[test]
+    fn three_paren_vectors_is_err() {
+        let err = parse_vector_and_format::<3>("(1, 2, 3) (4, 5, 6) (7.0, 8.0, 9.0)").unwrap_err();
+        assert!(err.contains("Multiple"), "expected multiple-vector error, got: {}", err);
     }
 
     // ===================================================================
