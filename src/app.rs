@@ -5,7 +5,7 @@ use leptos::wasm_bindgen::JsCast;
 mod format;
 mod rotation;
 
-use format::VectorFormat;
+use format::{parse_vector, parse_vector_format, VectorFormat};
 use rotation::{AxisAngle, Quaternion, Rotation};
 
 /// Which text box the user is currently editing.
@@ -63,8 +63,10 @@ fn QuaternionBox(
         text.set(value.clone());
         active_input.set(ActiveInput::Quaternion);
 
-        if let Ok((detected_fmt, nums)) = VectorFormat::detect_and_parse(&value, 4) {
-            format.set(detected_fmt);
+        if let Ok(nums) = parse_vector::<4>(&value) {
+            if let Ok(detected_fmt) = parse_vector_format(&value) {
+                format.set(detected_fmt);
+            }
             let (w, x, y, z) = if is_xyzw.get_untracked() {
                 (nums[3] as f32, nums[0] as f32, nums[1] as f32, nums[2] as f32)
             } else {
@@ -149,8 +151,10 @@ fn AxisAngle3DBox(
         text.set(value.clone());
         active_input.set(ActiveInput::AxisAngle3D);
 
-        if let Ok((detected_fmt, nums)) = VectorFormat::detect_and_parse(&value, 3) {
-            format.set(detected_fmt);
+        if let Ok(nums) = parse_vector::<3>(&value) {
+            if let Ok(detected_fmt) = parse_vector_format(&value) {
+                format.set(detected_fmt);
+            }
             let (ax, ay, az) = (nums[0] as f32, nums[1] as f32, nums[2] as f32);
             let angle = (ax * ax + ay * ay + az * az).sqrt();
             if angle > 1e-10 {

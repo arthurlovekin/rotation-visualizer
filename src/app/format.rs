@@ -14,6 +14,7 @@ enum NumberDelimiter {
     Comma,
     Tab,
     Semicolon,
+    Newline,
 }
 
 /// Represents the text format detected from user input for a vector of numbers.
@@ -42,6 +43,20 @@ impl Default for VectorFormat {
     }
 }
 
+impl VectorFormat {
+    pub fn format_vector(&self, values: &[f64]) -> String {
+        let mut result = String::new();
+        result.push_str(&self.prefix);
+        for (i, value) in values.iter().enumerate() {
+            if i > 0 {
+                result.push_str(&self.number_delimiter.to_string());
+            }
+        }
+        result.push_str(&self.suffix);
+        result
+    }
+}
+
 // Definition of a Vector (in a string)
 // An N-Vector is a sequence of exactly N numbers separated by a delimiter and 
 // enclosed in brackets. 
@@ -52,11 +67,11 @@ impl Default for VectorFormat {
 // If there is any type of character before or after the vector (prefix or suffix), it doesn't affect the vector (though it is saved in the VectorFormat)
 // Zero or multiple vectors in a string is not allowed.
 
-fn parse_vector<const N: usize>(input: &str) -> Result<[f64; N], String> {
+pub fn parse_vector<const N: usize>(input: &str) -> Result<[f64; N], String> {
     // TODO
 }
 
-fn parse_vector_format(input: &str) -> Result<VectorFormat, String> {
+pub fn parse_vector_format(input: &str) -> Result<VectorFormat, String> {
    // TODO
 }
 
@@ -454,5 +469,9 @@ mod tests {
     fn inconsistent_delimiters_comma_and_space() {
         // Mixing comma-separated and space-separated — should fail
         assert!(parse_vector::<4>("[1, 2 3, 4]").is_err());
+    }
+
+    fn no_delimeter_is_err() {
+        assert!(parse_vector::<3>("[1.02.03.0]").is_err());
     }
 }
