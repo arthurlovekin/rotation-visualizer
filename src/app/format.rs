@@ -57,9 +57,21 @@ impl VectorFormat {
     }
 }
 
+impl std::fmt::Display for NumberDelimiter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NumberDelimiter::Comma => write!(f, ", "),
+            NumberDelimiter::Space => write!(f, " "),
+            NumberDelimiter::Tab => write!(f, "\t"),
+            NumberDelimiter::Semicolon => write!(f, "; "),
+            NumberDelimiter::Newline => write!(f, "\n"),
+        }
+    }
+}
+
 // Definition of a Vector (in a string)
-// An N-Vector is a sequence of exactly N numbers separated by a delimiter and 
-// enclosed in brackets. 
+// An N-Vector is a sequence of exactly N numbers separated by a delimiter and
+// enclosed in brackets.
 //     - The delimiter could be a space, comma, tab, newline, or semicolon (no mixing of multiple delimiters).
 //     - The brackets could be square, parentheses, curly, or none (no mixing of multiple bracket types).
 //     - The number could be a floating point number (with a decimal point, eg. `1.23`), an integer (eg. `123`), or a scientific notation number (eg. `1.23e4`).
@@ -67,12 +79,159 @@ impl VectorFormat {
 // If there is any type of character before or after the vector (prefix or suffix), it doesn't affect the vector (though it is saved in the VectorFormat)
 // Zero or multiple vectors in a string is not allowed.
 
+/// Validates bracket matching using a stack (like the "valid parentheses" problem).
+/// Returns a list of matched bracket pairs: (open_pos, close_pos, bracket_type).
+fn validate_brackets(input: &str) -> Result<Vec<(usize, usize, BracketType)>, String> {
+    let mut stack: Vec<(usize, char)> = Vec::new();
+    let mut pairs = Vec::new();
+
+    for (i, ch) in input.char_indices() {
+        match ch {
+            '[' | '(' | '{' => stack.push((i, ch)),
+            ']' | ')' | '}' => {
+                let (open_pos, open_ch) = stack.pop().ok_or_else(|| {
+                    format!("Unexpected closing bracket '{}' at position {}", ch, i)
+                })?;
+                let expected = match open_ch {
+                    '[' => ']',
+                    '(' => ')',
+                    '{' => '}',
+                    _ => unreachable!(),
+                };
+                if ch != expected {
+                    return Err(format!(
+                        "Mismatched brackets: '{}' at position {} closed by '{}' at position {}",
+                        open_ch, open_pos, ch, i
+                    ));
+                }
+                let bracket_type = match open_ch {
+                    '[' => BracketType::Square,
+                    '(' => BracketType::Parentheses,
+                    '{' => BracketType::Curly,
+                    _ => unreachable!(),
+                };
+                pairs.push((open_pos, i, bracket_type));
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(&(pos, ch)) = stack.last() {
+        return Err(format!("Unclosed bracket '{}' at position {}", ch, pos));
+    }
+
+    Ok(pairs)
+}
+
+/// Trims each part from the iterator, skips empty strings, and parses as f64.
+fn parse_number_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Vec<f64>, String> {
+    let mut numbers = Vec::new();
+    for part in parts {
+        let trimmed = part.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let num = trimmed
+            .parse::<f64>()
+            .map_err(|e| format!("Failed to parse '{}' as a number: {}", trimmed, e))?;
+        numbers.push(num);
+    }
+    if numbers.is_empty() {
+        return Err("No numbers found".to_string());
+    }
+    Ok(numbers)
+}
+
+/// Detects the delimiter type from the content string and parses all numbers.
+/// Priority order: comma > semicolon > tab > newline > space.
+fn detect_delimiter_and_parse(content: &str) -> Result<(NumberDelimiter, Vec<f64>), String> {
+    let has_comma = content.contains(',');
+    let has_semicolon = content.contains(';');
+    let has_tab = content.contains('\t');
+    let has_newline = content.contains('\n');
+
+    if has_comma {
+        let numbers = parse_number_parts(content.split(','))?;
+        Ok((NumberDelimiter::Comma, numbers))
+    } else if has_semicolon {
+        let numbers = parse_number_parts(content.split(';'))?;
+        Ok((NumberDelimiter::Semicolon, numbers))
+    } else if has_tab {
+        let numbers = parse_number_parts(content.split('\t'))?;
+        Ok((NumberDelimiter::Tab, numbers))
+    } else if has_newline {
+        let numbers = parse_number_parts(content.split('\n'))?;
+        Ok((NumberDelimiter::Newline, numbers))
+    } else {
+        // Space-delimited: split_whitespace handles multiple spaces and trimming.
+        let parts: Vec<&str> = content.split_whitespace().collect();
+        if parts.is_empty() {
+            return Err("No numbers found".to_string());
+        }
+        let mut numbers = Vec::new();
+        for part in &parts {
+            let num = part
+                .parse::<f64>()
+                .map_err(|e| format!("Failed to parse '{}' as a number: {}", part, e))?;
+            numbers.push(num);
+        }
+        Ok((NumberDelimiter::Space, numbers))
+    }
+}
+
+/// Shared implementation: validates brackets, locates the vector region
+/// (innermost bracket pair), detects the delimiter, and parses numbers.
+fn parse_vector_inner(input: &str) -> Result<(Vec<f64>, VectorFormat), String> {
+    if input.trim().is_empty() {
+        return Err("Empty input".to_string());
+    }
+
+    let pairs = validate_brackets(input)?;
+
+    let (content, bracket_type, prefix, suffix) = if pairs.is_empty() {
+        // Bare vector (no brackets): the whole input is the vector content.
+        (input, BracketType::None, String::new(), String::new())
+    } else {
+        // The vector bracket is the innermost matched pair (largest open_pos).
+        // Outer brackets (e.g. the parens in `np.array(...)`) become prefix/suffix.
+        let &(open_pos, close_pos, ref bt) = pairs
+            .iter()
+            .max_by_key(|(open, _, _)| *open)
+            .unwrap();
+        (
+            &input[open_pos + 1..close_pos],
+            bt.clone(),
+            input[..open_pos].to_string(),
+            input[close_pos + 1..].to_string(),
+        )
+    };
+
+    let (delimiter, numbers) = detect_delimiter_and_parse(content)?;
+
+    Ok((
+        numbers,
+        VectorFormat {
+            number_delimiter: delimiter,
+            bracket_type,
+            prefix,
+            suffix,
+        },
+    ))
+}
+
 pub fn parse_vector<const N: usize>(input: &str) -> Result<[f64; N], String> {
-    // TODO
+    let (numbers, _) = parse_vector_inner(input)?;
+    if numbers.len() != N {
+        return Err(format!("Expected {} numbers, got {}", N, numbers.len()));
+    }
+    let mut arr = [0.0; N];
+    arr.copy_from_slice(&numbers);
+    Ok(arr)
 }
 
 pub fn parse_vector_format(input: &str) -> Result<VectorFormat, String> {
-   // TODO
+    let (_, format) = parse_vector_inner(input)?;
+    Ok(format)
 }
 
 
