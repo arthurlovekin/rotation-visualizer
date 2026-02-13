@@ -182,22 +182,30 @@ fn AxisAngle3DBox(
     }
 }
 
+/// Callback to request a 3D canvas redraw (used for reactive rendering).
+pub type RequestRedraw = Rc<dyn Fn()>;
+
 // ---------------------------------------------------------------------------
 // App root
 // ---------------------------------------------------------------------------
 #[component]
 fn App(
     #[prop(optional)] rotation_for_renderer: Option<Rc<RefCell<Rotation>>>,
+    #[prop(optional)] request_redraw: Option<RequestRedraw>,
 ) -> impl IntoView {
     let rotation = RwSignal::new(Rotation::default());
     let format = RwSignal::new(VectorFormat::default());
     let active_input = RwSignal::new(ActiveInput::None);
 
-    // Sync rotation to the three-d renderer each time it changes
+    // Sync rotation to the three-d renderer and request redraw when it changes
     if let Some(shared) = rotation_for_renderer {
+        let redraw = request_redraw;
         Effect::new(move || {
             let rot = rotation.get();
             *shared.borrow_mut() = rot;
+            if let Some(ref r) = redraw {
+                r();
+            }
         });
     }
 
@@ -287,9 +295,33 @@ async fn load_assets_wasm(
     Ok(raw)
 }
 
+/// Returns true if the window event should trigger a redraw (user interaction with 3D view).
+fn window_event_needs_redraw(event: &winit::event::WindowEvent) -> bool {
+    use winit::event::WindowEvent;
+    matches!(
+        event,
+        WindowEvent::CursorMoved { .. }
+            | WindowEvent::MouseInput { .. }
+            | WindowEvent::MouseWheel { .. }
+            | WindowEvent::Touch(_)
+            | WindowEvent::TouchpadMagnify { .. }
+            | WindowEvent::TouchpadRotate { .. }
+            | WindowEvent::Resized(_)
+            | WindowEvent::ScaleFactorChanged { .. }
+    )
+}
+
 #[cfg(target_arch = "wasm32")]
-fn run_three_d(rotation_for_renderer: Rc<RefCell<Rotation>>) {
+fn run_three_d(
+    rotation_for_renderer: Rc<RefCell<Rotation>>,
+    request_redraw: RequestRedraw,
+    event_loop: winit::event_loop::EventLoop<()>,
+) {
     use three_d::*;
+    use winit::event::{Event, WindowEvent};
+    use winit::event_loop::ControlFlow;
+    use winit::platform::web::WindowBuilderExtWebSys;
+    use winit::window::WindowBuilder;
 
     wasm_bindgen_futures::spawn_local(async move {
         let canvas_element = leptos::tachys::dom::document()
@@ -303,16 +335,28 @@ fn run_three_d(rotation_for_renderer: Rc<RefCell<Rotation>>) {
         canvas_element.set_width((css_width * dpr) as u32);
         canvas_element.set_height((css_height * dpr) as u32);
 
-        let window = Window::new(WindowSettings {
-            title: "Rotation Visualizer".to_string(),
-            canvas: Some(canvas_element),
-            ..Default::default()
-        })
-        .unwrap();
-        let context = window.gl();
+        let inner_size = winit::dpi::LogicalSize::new(css_width, css_height);
+        let window = WindowBuilder::new()
+            .with_title("Rotation Visualizer".to_string())
+            .with_canvas(Some(canvas_element))
+            .with_inner_size(inner_size)
+            .with_prevent_default(true)
+            .build(&event_loop)
+            .expect("failed to create window");
+        window.focus_window();
+
+        let surface_settings = SurfaceSettings::default();
+        let gl = WindowedContext::from_winit_window(&window, surface_settings)
+            .or_else(|_| {
+                let mut fallback = surface_settings;
+                fallback.multisamples = 0;
+                WindowedContext::from_winit_window(&window, fallback)
+            })
+            .expect("failed to create WebGL context");
+
+        let mut frame_input_generator = FrameInputGenerator::from_winit_window(&window);
 
         // Load suzanne_monkey mesh (async)
-        // three-d-asset's load_async uses reqwest which doesn't work on WASM, so we fetch manually
         let mut mesh_objects: Option<(
             Gm<InstancedMesh, PhysicalMaterial>,
             Gm<Mesh, PhysicalMaterial>,
@@ -327,9 +371,8 @@ fn run_three_d(rotation_for_renderer: Rc<RefCell<Rotation>>) {
                             log::warn!("Mesh transform failed: {:?}", e);
                         }
 
-                        // Transparent wireframe for fixed world-frame mesh
                         let mut wireframe_material = PhysicalMaterial::new_transparent(
-                            &context,
+                            &gl,
                             &CpuMaterial {
                                 albedo: Srgba::new(153, 153, 153, 128),
                                 roughness: 0.7,
@@ -344,13 +387,12 @@ fn run_three_d(rotation_for_renderer: Rc<RefCell<Rotation>>) {
                             .transform(three_d::Mat4::from_nonuniform_scale(1.0, 0.007, 0.007))
                             .expect("cylinder transform");
                         let wireframe_unrotated = Gm::new(
-                            InstancedMesh::new(&context, &edge_transformations(&cpu_mesh), &cylinder),
+                            InstancedMesh::new(&gl, &edge_transformations(&cpu_mesh), &cylinder),
                             wireframe_material,
                         );
 
-                        // Solid white for rotated mesh
                         let mut white_material = PhysicalMaterial::new_opaque(
-                            &context,
+                            &gl,
                             &CpuMaterial {
                                 albedo: Srgba::new_opaque(220, 220, 220),
                                 roughness: 0.7,
@@ -360,25 +402,27 @@ fn run_three_d(rotation_for_renderer: Rc<RefCell<Rotation>>) {
                         );
                         white_material.render_states.cull = Cull::Back;
 
-                        let mut mesh_rotated = Mesh::new(&context, &cpu_mesh);
+                        let mut mesh_rotated = Mesh::new(&gl, &cpu_mesh);
                         mesh_rotated.set_transformation(three_d::Mat4::identity());
 
                         Some((wireframe_unrotated, Gm::new(mesh_rotated, white_material)))
-                        }
-                        Err(e) => {
-                            log::error!("Failed to deserialize suzanne_monkey.obj: {:?}", e);
-                            None
-                        }
+                    }
+                    Err(e) => {
+                        log::error!("Failed to deserialize suzanne_monkey.obj: {:?}", e);
+                        None
                     }
                 }
-                Err(e) => {
-                    log::error!("Failed to load assets (check assets/ in dist): {:?}", e);
-                    None
-                }
-            };
+            }
+            Err(e) => {
+                log::error!("Failed to load assets (check assets/ in dist): {:?}", e);
+                None
+            }
+        };
 
+        let (w, h): (u32, u32) = window.inner_size().into();
+        let viewport = Viewport::new_at_origo(w, h);
         let mut camera = Camera::new_perspective(
-            window.viewport(),
+            viewport,
             vec3(5.0, 3.0, 2.5),
             vec3(0.0, 0.0, 0.0),
             vec3(0.0, 0.0, 1.0),
@@ -388,91 +432,171 @@ fn run_three_d(rotation_for_renderer: Rc<RefCell<Rotation>>) {
         );
         let mut control = OrbitControl::new(camera.target(), 1.0, 100.0);
 
-        let axes = Axes::new(&context, 0.1, 2.0);
+        let axes = Axes::new(&gl, 0.1, 2.0);
+        let light0 = DirectionalLight::new(&gl, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
+        let light1 = DirectionalLight::new(&gl, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
 
-        let light0 = DirectionalLight::new(&context, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
-        let light1 = DirectionalLight::new(&context, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
+        // Request initial render (rotation Effect will also trigger on mount)
+        request_redraw();
 
-        window.render_loop(move |mut frame_input| {
-            #[cfg(target_arch = "wasm32")]
-            let canvas_viewport = {
-                let canvas = leptos::tachys::dom::document()
-                    .get_element_by_id("three-canvas")
-                    .unwrap()
-                    .unchecked_into::<leptos::web_sys::HtmlCanvasElement>();
-                let dpr = leptos::web_sys::window().unwrap().device_pixel_ratio();
-                let css_width = canvas.client_width() as f64;
-                let css_height = canvas.client_height() as f64;
-                let buffer_width = (css_width * dpr) as u32;
-                let buffer_height = (css_height * dpr) as u32;
-                if canvas.width() != buffer_width || canvas.height() != buffer_height {
-                    canvas.set_width(buffer_width);
-                    canvas.set_height(buffer_height);
+        event_loop.run(move |event, _, control_flow| {
+            match &event {
+                Event::UserEvent(()) => {
+                    // Rotation changed from Leptos - request a redraw
+                    window.request_redraw();
                 }
-                Viewport {
-                    x: 0,
-                    y: 0,
-                    width: buffer_width,
-                    height: buffer_height,
+                Event::MainEventsCleared => {
+                    // Reactive loop: do NOT request redraw here. We only redraw on
+                    // UserEvent (rotation change) or WindowEvent (user interaction).
                 }
-            };
+                Event::RedrawRequested(_) => {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        use winit::platform::web::WindowExtWebSys;
+                        let html_canvas = window.canvas();
+                        let browser_window = html_canvas
+                            .owner_document()
+                            .and_then(|doc| doc.default_view())
+                            .or_else(leptos::web_sys::window)
+                            .unwrap();
+                        window.set_inner_size(winit::dpi::LogicalSize {
+                            width: browser_window.inner_width().unwrap().as_f64().unwrap(),
+                            height: browser_window.inner_height().unwrap().as_f64().unwrap(),
+                        });
+                    }
 
-            camera.set_viewport(canvas_viewport);
-            control.handle_events(&mut camera, &mut frame_input.events);
+                    let mut frame_input = frame_input_generator.generate(&gl);
+                    let canvas_viewport = {
+                        let canvas = leptos::tachys::dom::document()
+                            .get_element_by_id("three-canvas")
+                            .unwrap()
+                            .unchecked_into::<leptos::web_sys::HtmlCanvasElement>();
+                        let dpr = leptos::web_sys::window().unwrap().device_pixel_ratio();
+                        let css_width = canvas.client_width() as f64;
+                        let css_height = canvas.client_height() as f64;
+                        let buffer_width = (css_width * dpr) as u32;
+                        let buffer_height = (css_height * dpr) as u32;
+                        if canvas.width() != buffer_width || canvas.height() != buffer_height {
+                            canvas.set_width(buffer_width);
+                            canvas.set_height(buffer_height);
+                        }
+                        Viewport {
+                            x: 0,
+                            y: 0,
+                            width: buffer_width,
+                            height: buffer_height,
+                        }
+                    };
 
-            match &mut mesh_objects {
-                Some((model_unrotated, model_rotated)) => {
-                    let rot = rotation_for_renderer.borrow();
-                    model_rotated.geometry.set_transformation(rotation_to_mat4(&rot));
-                    frame_input
-                        .screen()
-                        .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
-                        .render(
-                            &camera,
-                            (&*model_unrotated)
-                                .into_iter()
-                                .chain(&*model_rotated)
-                                .chain(&axes),
-                            &[&light0, &light1],
-                        );
+                    camera.set_viewport(canvas_viewport);
+                    control.handle_events(&mut camera, &mut frame_input.events);
+
+                    match &mut mesh_objects {
+                        Some((model_unrotated, model_rotated)) => {
+                            let rot = rotation_for_renderer.borrow();
+                            model_rotated.geometry.set_transformation(rotation_to_mat4(&rot));
+                            frame_input
+                                .screen()
+                                .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+                                .render(
+                                    &camera,
+                                    (&*model_unrotated)
+                                        .into_iter()
+                                        .chain(&*model_rotated)
+                                        .chain(&axes),
+                                    &[&light0, &light1],
+                                );
+                        }
+                        None => {
+                            frame_input
+                                .screen()
+                                .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+                                .render(&camera, &axes, &[&light0, &light1]);
+                        }
+                    }
+
+                    if option_env!("THREE_D_SCREENSHOT").is_none() {
+                        let _ = gl.swap_buffers();
+                    }
+
+                    // Reactive: wait for next event instead of continuous 60 FPS
+                    *control_flow = ControlFlow::Wait;
                 }
-                None => {
-                    frame_input
-                        .screen()
-                        .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
-                        .render(&camera, &axes, &[&light0, &light1]);
+                Event::WindowEvent { event, .. } => {
+                    frame_input_generator.handle_winit_window_event(event);
+                    match event {
+                        WindowEvent::Resized(physical_size) => {
+                            gl.resize(*physical_size);
+                        }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            gl.resize(**new_inner_size);
+                        }
+                        WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                        _ => {}
+                    }
+                    if window_event_needs_redraw(event) {
+                        window.request_redraw();
+                    }
                 }
-            }
-
-            FrameOutput {
-                swap_buffers: true,
-                ..Default::default()
+                _ => {}
             }
         });
     });
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn run_three_d(rotation_for_renderer: Rc<RefCell<Rotation>>) {
+fn run_three_d(_rotation_for_renderer: Rc<RefCell<Rotation>>) {
     // Native build: synchronous loading, no spawn_local needed
     unimplemented!("suzanne_monkey visualization is WASM-only for now; use trunk serve");
 }
 
 pub fn main() {
-    let rotation_for_renderer = Rc::new(RefCell::new(Rotation::default()));
-    let rotation_for_app = rotation_for_renderer.clone();
+    #[cfg(target_arch = "wasm32")]
+    {
+        use winit::event_loop::EventLoop;
 
-    let leptos_root = leptos::tachys::dom::document()
-        .get_element_by_id("leptos-app")
-        .expect("should find #leptos-app element")
-        .unchecked_into::<leptos::web_sys::HtmlElement>();
+        let rotation_for_renderer = Rc::new(RefCell::new(Rotation::default()));
+        let rotation_for_app = rotation_for_renderer.clone();
 
-    mount_to(leptos_root, move || {
-        view! {
-            <App rotation_for_renderer=rotation_for_app.clone() />
-        }
-    })
-    .forget();
+        let event_loop = EventLoop::new();
+        let redraw_proxy = event_loop.create_proxy();
+        let request_redraw: RequestRedraw = Rc::new(move || {
+            let _ = redraw_proxy.send_event(());
+        });
+        let request_redraw_for_app = request_redraw.clone();
 
-    run_three_d(rotation_for_renderer);
+        let leptos_root = leptos::tachys::dom::document()
+            .get_element_by_id("leptos-app")
+            .expect("should find #leptos-app element")
+            .unchecked_into::<leptos::web_sys::HtmlElement>();
+
+        mount_to(leptos_root, move || {
+            view! {
+                <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() />
+            }
+        })
+        .forget();
+
+        run_three_d(rotation_for_renderer, request_redraw, event_loop);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let rotation_for_renderer = Rc::new(RefCell::new(Rotation::default()));
+        let rotation_for_app = rotation_for_renderer.clone();
+
+        let leptos_root = leptos::tachys::dom::document()
+            .get_element_by_id("leptos-app")
+            .expect("should find #leptos-app element")
+            .unchecked_into::<leptos::web_sys::HtmlElement>();
+
+        mount_to(leptos_root, move || {
+            view! {
+                <App rotation_for_renderer=Some(rotation_for_app.clone()) />
+            }
+        })
+        .forget();
+
+        run_three_d(rotation_for_renderer);
+    }
 }
