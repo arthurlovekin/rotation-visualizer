@@ -2,13 +2,22 @@
 This tool shows different representations of a rotation in 3D, including a visual representation and various algebraic representations. All of the representations are a "view" into the same underlying rotation, and update automatically as the user interacts with the sliders or text boxes.
 
 ## Visual Layout:
-On the right of the screen is a black canvas with the un-rotated (gray) and rotated (white) version of the same mesh. There are checkboxes / dropdowns to configure:
-    - Different meshes (eg. Coordinate axes, colored cube, Monkey, airplane)
-    - Include the axis-angle representation (visualized in 3D as a flag)
-    - Include the coordinate axes and rotated coordinate-axes (arrows)
-    - Include the Euler-Angle Arcs: https://compsci290-s2016.github.io/CoursePage/Materials/EulerAnglesViz/
-On the left of the screen are the algebraic representations of the rotation (see below). Each representation includes a text box from/into which the user can copy/paste/type, and also sliders that follow the values of the representation.
-There is also a button to toggle the matrix/vector formatting between languages (Python, Matlab, R, yaml, or user-defined). The URL of the site determines the settings.
+On the right of the screen is a black canvas with the un-rotated (gray) and rotated (white) version of the same mesh. Left-click and drag to rotate the camera; left-click on a handle to rotate the rotation. There are checkboxes / dropdowns to configure:
+    - Dropdown to select the desired mesh (eg. Coordinate axes, colored cube, Monkey, airplane)
+    - Dropdown to choose the control method:
+        - Axis-angle: One handle on the tip of a 3D unit-vector, and another handle on a ring around the unit-vector.
+        - Euler-angle: Three rings, one for each axis, each one with a handle.
+    - Checkbox to toggle showing the coordinate axes
+    - Checkbox to toggle showing the non-rotated version of the mesh
+On the left of the screen are the algebraic representations of the rotation (see below). Each representation includes:
+ - a text box from/into which the user can copy/paste/type (this is parsed into floats using a custom parser)
+ - sliders (linear) and knobs (modular) that follow the numerical values of the representation, and can be dragged to change the values.
+ - Dropdown to choose which convention to use for the representation (if applicable)
+ - Description, answering the following questions:
+    - What is the relationship between these numbers and the orientation of a 3D object?
+    - What are the constraints on the values of the representation?
+    - What are the advantages and disadvantages of this representation? In what scenarios should it be used?
+    - What are quirks and gotchas to be aware of?
 
 ## Representations:
 
