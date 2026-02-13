@@ -592,7 +592,7 @@ pub fn main() {
 
         mount_to(leptos_root, move || {
             view! {
-                <App rotation_for_renderer=Some(rotation_for_app.clone()) />
+                <App rotation_for_renderer=rotation_for_app.clone() />
             }
         })
         .forget();
