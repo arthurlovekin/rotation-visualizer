@@ -27,13 +27,14 @@ impl Default for VectorFormat {
 impl VectorFormat {
     pub fn format_vector(&self, values: &[f64]) -> String {
         let mut result = String::new();
-        result.push_str(&self.prefix);
+        result.push_str(&self.prefix.clone());
         for (i, value) in values.iter().enumerate() {
-            if i > 0 {
+            result.push_str(&value.to_string());
+            if i < values.len() - 1 {
                 result.push(self.number_delimiter);
             }
         }
-        result.push_str(&self.suffix);
+        result.push_str(&self.suffix.clone());
         result
     }
 }
