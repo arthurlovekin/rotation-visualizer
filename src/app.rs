@@ -212,6 +212,43 @@ fn App(
 // three-d renderer + Leptos mount
 // ---------------------------------------------------------------------------
 
+/// Build edge transformations for wireframe rendering (cylinders along each mesh edge).
+fn edge_transformations(cpu_mesh: &three_d::CpuMesh) -> three_d::Instances {
+    use three_d::*;
+    let indices = cpu_mesh.indices.to_u32().unwrap();
+    let positions = cpu_mesh.positions.to_f32();
+    let mut transformations = Vec::new();
+    for f in 0..indices.len() / 3 {
+        let i1 = indices[3 * f] as usize;
+        let i2 = indices[3 * f + 1] as usize;
+        let i3 = indices[3 * f + 2] as usize;
+        if i1 < i2 {
+            transformations.push(edge_transform(positions[i1], positions[i2]));
+        }
+        if i2 < i3 {
+            transformations.push(edge_transform(positions[i2], positions[i3]));
+        }
+        if i3 < i1 {
+            transformations.push(edge_transform(positions[i3], positions[i1]));
+        }
+    }
+    Instances {
+        transformations,
+        ..Default::default()
+    }
+}
+
+fn edge_transform(p1: three_d::Vec3, p2: three_d::Vec3) -> three_d::Mat4 {
+    use three_d::*;
+    Mat4::from_translation(p1)
+        * Mat4::from(Quat::from_arc(
+            vec3(1.0, 0.0, 0.0),
+            (p2 - p1).normalize(),
+            None,
+        ))
+        * Mat4::from_nonuniform_scale((p2 - p1).magnitude(), 1.0, 1.0)
+}
+
 /// Converts our Rotation to a three-d Mat4 (4x4 rotation matrix, column-major).
 fn rotation_to_mat4(rot: &Rotation) -> three_d::Mat4 {
     use three_d::*;
@@ -276,49 +313,57 @@ fn run_three_d(rotation_for_renderer: Rc<RefCell<Rotation>>) {
 
         // Load suzanne_monkey mesh (async)
         // three-d-asset's load_async uses reqwest which doesn't work on WASM, so we fetch manually
-        let mut mesh_objects: Option<(Gm<Mesh, PhysicalMaterial>, Gm<Mesh, PhysicalMaterial>)> =
-            match load_assets_wasm(&["assets/suzanne_monkey.obj", "assets/suzanne_monkey.mtl"]).await
-            {
-                Ok(mut loaded) => {
-                    match loaded.deserialize::<three_d::CpuMesh>("assets/suzanne_monkey.obj") {
-                        Ok(mut cpu_mesh) => {
-                            let scale = 1.5;
-                            if let Err(e) = cpu_mesh.transform(three_d::Mat4::from_scale(scale)) {
-                                log::warn!("Mesh transform failed: {:?}", e);
-                            }
+        let mut mesh_objects: Option<(
+            Gm<InstancedMesh, PhysicalMaterial>,
+            Gm<Mesh, PhysicalMaterial>,
+        )> = match load_assets_wasm(&["assets/suzanne_monkey.obj", "assets/suzanne_monkey.mtl"])
+            .await
+        {
+            Ok(mut loaded) => {
+                match loaded.deserialize::<three_d::CpuMesh>("assets/suzanne_monkey.obj") {
+                    Ok(mut cpu_mesh) => {
+                        let scale = 1.5;
+                        if let Err(e) = cpu_mesh.transform(three_d::Mat4::from_scale(scale)) {
+                            log::warn!("Mesh transform failed: {:?}", e);
+                        }
 
-                            let mut gray_material = PhysicalMaterial::new_opaque(
-                                &context,
-                                &CpuMaterial {
-                                    albedo: Srgba::new_opaque(100, 100, 100),
-                                    roughness: 0.7,
-                                    metallic: 0.3,
-                                    ..Default::default()
-                                },
-                            );
-                            gray_material.render_states.cull = Cull::Back;
+                        // Transparent wireframe for fixed world-frame mesh
+                        let mut wireframe_material = PhysicalMaterial::new_transparent(
+                            &context,
+                            &CpuMaterial {
+                                albedo: Srgba::new(153, 153, 153, 128),
+                                roughness: 0.7,
+                                metallic: 0.3,
+                                ..Default::default()
+                            },
+                        );
+                        wireframe_material.render_states.cull = Cull::Back;
 
-                            let mut white_material = PhysicalMaterial::new_opaque(
-                                &context,
-                                &CpuMaterial {
-                                    albedo: Srgba::new_opaque(220, 220, 220),
-                                    roughness: 0.7,
-                                    metallic: 0.3,
-                                    ..Default::default()
-                                },
-                            );
-                            white_material.render_states.cull = Cull::Back;
+                        let mut cylinder = CpuMesh::cylinder(10);
+                        cylinder
+                            .transform(three_d::Mat4::from_nonuniform_scale(1.0, 0.007, 0.007))
+                            .expect("cylinder transform");
+                        let wireframe_unrotated = Gm::new(
+                            InstancedMesh::new(&context, &edge_transformations(&cpu_mesh), &cylinder),
+                            wireframe_material,
+                        );
 
-                            let mut mesh_unrotated = Mesh::new(&context, &cpu_mesh);
-                            mesh_unrotated.set_transformation(three_d::Mat4::identity());
+                        // Solid white for rotated mesh
+                        let mut white_material = PhysicalMaterial::new_opaque(
+                            &context,
+                            &CpuMaterial {
+                                albedo: Srgba::new_opaque(220, 220, 220),
+                                roughness: 0.7,
+                                metallic: 0.3,
+                                ..Default::default()
+                            },
+                        );
+                        white_material.render_states.cull = Cull::Back;
 
-                            let mut mesh_rotated = Mesh::new(&context, &cpu_mesh);
-                            mesh_rotated.set_transformation(three_d::Mat4::identity());
+                        let mut mesh_rotated = Mesh::new(&context, &cpu_mesh);
+                        mesh_rotated.set_transformation(three_d::Mat4::identity());
 
-                            Some((
-                                Gm::new(mesh_unrotated, gray_material),
-                                Gm::new(mesh_rotated, white_material),
-                            ))
+                        Some((wireframe_unrotated, Gm::new(mesh_rotated, white_material)))
                         }
                         Err(e) => {
                             log::error!("Failed to deserialize suzanne_monkey.obj: {:?}", e);
