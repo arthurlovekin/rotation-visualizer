@@ -93,6 +93,44 @@ fn QuaternionBox(
         set_is_xyzw.set(false);
     };
 
+    // Slider values: reactive view of quaternion components (order depends on convention)
+    let slider_values = move || {
+        let q = rotation.get().as_quaternion();
+        if is_xyzw.get() {
+            [q.x, q.y, q.z, q.w]
+        } else {
+            [q.w, q.x, q.y, q.z]
+        }
+    };
+
+    let slider_labels = move || {
+        if is_xyzw.get() {
+            ["x", "y", "z", "w"]
+        } else {
+            ["w", "x", "y", "z"]
+        }
+    };
+
+    // When a slider is dragged: parse value and update rotation
+    let on_slider_input = move |idx: usize, ev: leptos::web_sys::Event| {
+        let value_str = input_event_value(&ev);
+        if let Ok(val) = value_str.parse::<f32>() {
+            let q = rotation.get_untracked().as_quaternion();
+            let (w, x, y, z) = if is_xyzw.get_untracked() {
+                let mut v = [q.x, q.y, q.z, q.w];
+                v[idx] = val.clamp(-1.0, 1.0);
+                (v[3], v[0], v[1], v[2])
+            } else {
+                let mut v = [q.w, q.x, q.y, q.z];
+                v[idx] = val.clamp(-1.0, 1.0);
+                (v[0], v[1], v[2], v[3])
+            };
+            if let Ok(new_q) = Quaternion::try_new(w, x, y, z) {
+                rotation.set(Rotation::from(new_q));
+            }
+        }
+    };
+
     view! {
         <div>
             <h2>"Quaternion"</h2>
@@ -117,6 +155,31 @@ fn QuaternionBox(
                 on:input=on_input
                 on:blur=on_blur
             />
+            <div class="quat-sliders">
+                {move || {
+                    let values = slider_values();
+                    let labels = slider_labels();
+                    (0..4).map(move |i| {
+                        let on_input = move |ev: leptos::web_sys::Event| on_slider_input(i, ev);
+                        let value = values[i];
+                        view! {
+                            <div class="quat-slider-row">
+                                <label>{labels[i]}" = "
+                                    <input
+                                        type="range"
+                                        min="-1"
+                                        max="1"
+                                        step="0.01"
+                                        prop:value=move || format!("{:.4}", value)
+                                        on:input=on_input
+                                    />
+                                </label>
+                                <span class="quat-slider-value">{move || format!("{:.4}", value)}</span>
+                            </div>
+                        }
+                    }).collect_view()
+                }}
+            </div>
         </div>
     }
 }
