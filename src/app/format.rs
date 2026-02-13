@@ -198,77 +198,16 @@ pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f64; N],
     ))
 }
 
-/// Parse matrix content that has already been stripped of outer brackets.
-/// Tries semicolons as row separators, then newlines, then flat (row-major).
-fn parse_matrix_from_content<const R: usize, const C: usize>(
-    content: &str,
-) -> Result<[[f64; C]; R], String> {
-    let rows: Vec<Vec<f64>> = if content.contains(';') {
-        // Semicolons separate rows (Matlab-style)
-        content
-            .split(';')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .map(|s| detect_delimiter_and_parse(s).map(|(_, nums)| nums))
-            .collect::<Result<Vec<_>, _>>()?
-    } else {
-        let lines: Vec<&str> = content
-            .split('\n')
-            .map(|l| l.trim())
-            .filter(|l| !l.is_empty())
-            .collect();
-
-        if lines.len() > 1 {
-            // Multiple non-empty lines — each line is a row
-            lines
-                .iter()
-                .map(|l| detect_delimiter_and_parse(l).map(|(_, nums)| nums))
-                .collect::<Result<Vec<_>, _>>()?
-        } else {
-            // Single line — treat as flat
-            let (_, numbers) = detect_delimiter_and_parse(content)?;
-            vec![numbers]
-        }
-    };
-
-    // If rows match the expected shape exactly, use them directly
-    if rows.len() == R && rows.iter().all(|r| r.len() == C) {
-        let mut matrix = [[0.0f64; C]; R];
-        for (i, row) in rows.iter().enumerate() {
-            matrix[i].copy_from_slice(row);
-        }
-        return Ok(matrix);
-    }
-
-    // Otherwise flatten and interpret as row-major
-    let flat: Vec<f64> = rows.into_iter().flatten().collect();
-    if flat.len() == R * C {
-        let mut matrix = [[0.0f64; C]; R];
-        for i in 0..R {
-            matrix[i].copy_from_slice(&flat[i * C..(i + 1) * C]);
-        }
-        Ok(matrix)
-    } else {
-        Err(format!(
-            "Expected {}×{} matrix ({} values), got {}",
-            R,
-            C,
-            R * C,
-            flat.len()
-        ))
-    }
-}
-
 /// Parses a matrix of numbers from a variety of text formats.
-///
-/// Supported formats include:
-/// - Nested brackets: `[[1, 2, 3], [4, 5, 6], [7, 8, 9]]`
-/// - Matlab-style semicolons: `[1 0 0; 0 1 0; 0 0 1]`
-/// - Newline-separated rows: `"1 0 0\n0 1 0\n0 0 1"`
-/// - Flat row-major: `1, 0, 0, 0, 1, 0, 0, 0, 1`
-/// - With wrappers: `np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])`
-///
 /// Returns an `R`-row by `C`-column matrix as `[[f64; C]; R]`.
+///
+/// Supported formats:
+/// - Nested brackets: `[[1, 0, 0], [0, 1, 0], [0, 0, 1]]`
+/// - With wrappers: `np.array([[1, 0], [0, 1]])`, `torch.tensor([[1, 0], [0, 1]])`
+/// - Matlab semicolons: `[1 0 0; 0 1 0; 0 0 1]` or bare `1 0 0; 0 1 0; 0 0 1`
+/// - Newline-separated rows: `1 0 0\n0 1 0\n0 0 1`
+///
+/// Flat (1D) inputs are rejected.
 pub fn parse_matrix<const R: usize, const C: usize>(
     input: &str,
 ) -> Result<[[f64; C]; R], String> {
@@ -278,47 +217,87 @@ pub fn parse_matrix<const R: usize, const C: usize>(
 
     let pairs = validate_brackets(input)?;
 
-    if pairs.is_empty() {
-        return parse_matrix_from_content::<R, C>(input);
-    }
-
-    // Find leaf bracket pairs (those containing no nested brackets).
-    let mut leaf_pairs: Vec<(usize, usize, char)> = pairs
+    // Find leaf bracket pairs (those not containing any other bracket pair).
+    let leaf_pairs: Vec<(usize, usize, char)> = pairs
         .iter()
         .filter(|&&(open, close, _)| {
             !pairs.iter().any(|&(o2, c2, _)| o2 > open && c2 < close)
         })
-        .cloned()
+        .copied()
         .collect();
-    leaf_pairs.sort_by_key(|(open, _, _)| *open);
 
-    if leaf_pairs.len() == R {
-        // Each leaf bracket is a row
-        let mut matrix = [[0.0f64; C]; R];
-        for (i, &(open, close, _)) in leaf_pairs.iter().enumerate() {
-            let row_content = &input[open + 1..close];
-            let (_, numbers) = detect_delimiter_and_parse(row_content)?;
-            if numbers.len() != C {
+    // Nesting exists when some bracket pairs are non-leaf (i.e. they wrap other pairs).
+    let has_nesting = leaf_pairs.len() < pairs.len();
+
+    let row_contents: Vec<&str> = if has_nesting {
+        // Nested bracket format: leaf pairs are the row vectors.
+        // Verify all row vectors use the same bracket type.
+        let first_bt = leaf_pairs[0].2;
+        for &(_, _, bt) in &leaf_pairs[1..] {
+            if bt != first_bt {
                 return Err(format!(
-                    "Expected {} columns in row {}, got {}",
-                    C, i, numbers.len()
+                    "Inconsistent row vector brackets: '{}' and '{}'",
+                    first_bt, bt
                 ));
             }
-            matrix[i].copy_from_slice(&numbers);
         }
-        Ok(matrix)
-    } else if leaf_pairs.len() == 1 {
-        // Single bracket pair — parse its contents as structured rows or flat
-        let (open, close, _) = leaf_pairs[0];
-        let content = &input[open + 1..close];
-        parse_matrix_from_content::<R, C>(content)
+
+        leaf_pairs
+            .iter()
+            .map(|&(open, close, _)| &input[open + 1..close])
+            .collect()
     } else {
-        Err(format!(
-            "Expected {} row brackets or 1 outer bracket, found {} bracket groups",
-            R,
-            leaf_pairs.len()
-        ))
+        // No nesting: strip a single outer bracket if present, then split rows
+        // by semicolons or newlines.
+        let content = if pairs.len() == 1 {
+            &input[pairs[0].0 + 1..pairs[0].1]
+        } else if pairs.is_empty() {
+            input
+        } else {
+            return Err(
+                "Ambiguous matrix format: multiple non-nested bracket groups".to_string(),
+            );
+        };
+
+        if content.contains(';') {
+            content
+                .split(';')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect()
+        } else if content.contains('\n') {
+            content
+                .split('\n')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect()
+        } else {
+            return Err(
+                "No 2D structure detected: expected row vectors, semicolons, or newlines"
+                    .to_string(),
+            );
+        }
+    };
+
+    if row_contents.len() != R {
+        return Err(format!("Expected {} rows, got {}", R, row_contents.len()));
     }
+
+    let mut result = [[0.0f64; C]; R];
+    for (i, row_str) in row_contents.iter().enumerate() {
+        let (_, numbers) = detect_delimiter_and_parse(row_str)?;
+        if numbers.len() != C {
+            return Err(format!(
+                "Expected {} columns, got {} in row {}",
+                C,
+                numbers.len(),
+                i
+            ));
+        }
+        result[i].copy_from_slice(&numbers);
+    }
+
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -830,33 +809,6 @@ mod tests {
         assert_eq!(m, IDENTITY_3X3);
     }
 
-    // --- Flat (row-major) ---
-
-    #[test]
-    fn matrix_flat_comma_separated() {
-        let m = parse_matrix::<3, 3>("1, 0, 0, 0, 1, 0, 0, 0, 1").unwrap();
-        assert_eq!(m, IDENTITY_3X3);
-    }
-
-    #[test]
-    fn matrix_flat_space_separated() {
-        let m = parse_matrix::<3, 3>("1 0 0 0 1 0 0 0 1").unwrap();
-        assert_eq!(m, IDENTITY_3X3);
-    }
-
-    #[test]
-    fn matrix_flat_in_brackets() {
-        let m = parse_matrix::<3, 3>("[1, 0, 0, 0, 1, 0, 0, 0, 1]").unwrap();
-        assert_eq!(m, IDENTITY_3X3);
-    }
-
-    #[test]
-    fn matrix_flat_nine_lines() {
-        // One number per line — flattened and reshaped
-        let m = parse_matrix::<3, 3>("1\n0\n0\n0\n1\n0\n0\n0\n1").unwrap();
-        assert_eq!(m, IDENTITY_3X3);
-    }
-
     // --- Non-square matrices ---
 
     #[test]
@@ -869,18 +821,6 @@ mod tests {
     fn matrix_3x2_nested() {
         let m = parse_matrix::<3, 2>("[[1, 2], [3, 4], [5, 6]]").unwrap();
         assert_eq!(m, [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
-    }
-
-    #[test]
-    fn matrix_2x3_flat() {
-        let m = parse_matrix::<2, 3>("1 2 3 4 5 6").unwrap();
-        assert_eq!(m, [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
-    }
-
-    #[test]
-    fn matrix_1x3_nested() {
-        let m = parse_matrix::<1, 3>("[[1, 2, 3]]").unwrap();
-        assert_eq!(m, [[1.0, 2.0, 3.0]]);
     }
 
     // --- Special numbers ---
@@ -938,12 +878,6 @@ mod tests {
     }
 
     #[test]
-    fn matrix_wrong_total_count() {
-        let err = parse_matrix::<3, 3>("1, 2, 3, 4, 5, 6, 7, 8").unwrap_err();
-        assert!(err.contains("9"), "expected mention of 9 values, got: {}", err);
-    }
-
-    #[test]
     fn matrix_wrong_row_count_nested() {
         // 2 row brackets instead of 3
         assert!(parse_matrix::<3, 3>("[[1, 0, 0], [0, 1, 0]]").is_err());
@@ -975,5 +909,15 @@ mod tests {
     #[test]
     fn matrix_unclosed_bracket() {
         assert!(parse_matrix::<2, 2>("[[1, 0], [0, 1]").is_err());
+    }
+
+    #[test]
+    fn matrix_flattened_is_err() {
+        assert!(parse_matrix::<3, 3>("1, 2, 3, 4, 5, 6, 7, 8, 9").is_err());
+        assert!(parse_matrix::<3, 3>("1 2 3 4 5 6 7 8 9").is_err());
+        assert!(parse_matrix::<3, 3>("1\n2\n3\n4\n5\n6\n7\n8\n9").is_err());
+        assert!(parse_matrix::<3, 3>("[1, 2, 3, 4, 5, 6, 7, 8, 9]").is_err());
+        assert!(parse_matrix::<3, 3>("[1 2 3 4 5 6 7 8 9]").is_err());
+        assert!(parse_matrix::<3, 3>("[1\n2\n3\n4\n5\n6\n7\n8\n9]").is_err());
     }
 }
