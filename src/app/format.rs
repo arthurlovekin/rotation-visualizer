@@ -290,7 +290,14 @@ pub fn parse_matrix_and_format<const R: usize, const C: usize>(
     // Nesting exists when some bracket pairs are non-leaf (i.e. they wrap other pairs).
     let has_nesting = leaf_pairs.len() < pairs.len();
 
-    let row_contents: Vec<&str> = if has_nesting {
+    let row_contents: Vec<&str>;
+    let matrix_bracket_type: char;
+    let matrix_prefix: String;
+    let matrix_suffix: String;
+    let row_delimiter: char;
+    let vector_bracket_type: char;
+
+    if has_nesting {
         // Nested bracket format: leaf pairs are the row vectors.
         // Verify all row vectors use the same bracket type.
         let first_bt = leaf_pairs[0].2;
@@ -302,51 +309,87 @@ pub fn parse_matrix_and_format<const R: usize, const C: usize>(
                 ));
             }
         }
+        vector_bracket_type = first_bt;
 
-        leaf_pairs
+        row_contents = leaf_pairs
             .iter()
             .map(|&(open, close, _)| &input[open + 1..close])
-            .collect()
+            .collect();
+
+        // Matrix bracket: innermost non-leaf pair (largest open_pos among non-leaf).
+        // Everything outside it becomes prefix/suffix.
+        let &(mat_open, mat_close, mat_bt) = pairs
+            .iter()
+            .filter(|p| !leaf_pairs.contains(p))
+            .max_by_key(|(open, _, _)| *open)
+            .unwrap();
+        matrix_bracket_type = mat_bt;
+        matrix_prefix = input[..mat_open].trim().to_string();
+        matrix_suffix = input[mat_close + 1..].trim().to_string();
+
+        // Detect row_delimiter from text between first two leaf pairs.
+        if leaf_pairs.len() >= 2 {
+            let between = &input[leaf_pairs[0].1 + 1..leaf_pairs[1].0];
+            row_delimiter = detect_row_delimiter(between);
+        } else {
+            row_delimiter = ',';
+        }
     } else {
-        // No nesting: strip a single outer bracket if present, then split rows
+        // No nesting: row vectors are bare (no brackets of their own).
+        vector_bracket_type = ' ';
+
+        // Strip a single outer bracket if present, then split rows
         // by semicolons or newlines.
-        let content = if pairs.len() == 1 {
-            &input[pairs[0].0 + 1..pairs[0].1]
+        let content: &str;
+        if pairs.len() == 1 {
+            content = &input[pairs[0].0 + 1..pairs[0].1];
+            matrix_bracket_type = pairs[0].2;
+            matrix_prefix = input[..pairs[0].0].trim().to_string();
+            matrix_suffix = input[pairs[0].1 + 1..].trim().to_string();
         } else if pairs.is_empty() {
-            input
+            content = input;
+            matrix_bracket_type = ' ';
+            matrix_prefix = String::new();
+            matrix_suffix = String::new();
         } else {
             return Err(
                 "Ambiguous matrix format: multiple non-nested bracket groups".to_string(),
             );
-        };
+        }
 
         if content.contains(';') {
-            content
+            row_delimiter = ';';
+            row_contents = content
                 .split(';')
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
-                .collect()
+                .collect();
         } else if content.contains('\n') {
-            content
+            row_delimiter = '\n';
+            row_contents = content
                 .split('\n')
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
-                .collect()
+                .collect();
         } else {
             return Err(
                 "No 2D structure detected: expected row vectors, semicolons, or newlines"
                     .to_string(),
             );
         }
-    };
+    }
 
     if row_contents.len() != R {
         return Err(format!("Expected {} rows, got {}", R, row_contents.len()));
     }
 
     let mut result = [[0.0f64; C]; R];
+    let mut number_delimiter = ' ';
     for (i, row_str) in row_contents.iter().enumerate() {
-        let (_, numbers) = detect_delimiter_and_parse(row_str)?;
+        let (delim, numbers) = detect_delimiter_and_parse(row_str)?;
+        if i == 0 {
+            number_delimiter = delim;
+        }
         if numbers.len() != C {
             return Err(format!(
                 "Expected {} columns, got {} in row {}",
@@ -358,14 +401,37 @@ pub fn parse_matrix_and_format<const R: usize, const C: usize>(
         result[i].copy_from_slice(&numbers);
     }
 
-    // TODO: Deduce the MatrixFormat from the input string instead of using the default values
-    Ok((result, MatrixFormat {
-        vector_format: VectorFormat::default(),
-        row_delimiter: ';',
-        bracket_type: '[',
-        prefix: String::new(),
-        suffix: String::new(),
-    }))
+    Ok((
+        result,
+        MatrixFormat {
+            vector_format: VectorFormat {
+                number_delimiter,
+                bracket_type: vector_bracket_type,
+                prefix: String::new(),
+                suffix: String::new(),
+            },
+            row_delimiter,
+            bracket_type: matrix_bracket_type,
+            prefix: matrix_prefix,
+            suffix: matrix_suffix,
+        },
+    ))
+}
+
+/// Detects the row delimiter from text between two row vectors.
+/// Priority: comma > semicolon > tab > newline > space.
+fn detect_row_delimiter(between: &str) -> char {
+    if between.contains(',') {
+        ','
+    } else if between.contains(';') {
+        ';'
+    } else if between.contains('\t') {
+        '\t'
+    } else if between.contains('\n') {
+        '\n'
+    } else {
+        ' '
+    }
 }
 
 #[cfg(test)]
