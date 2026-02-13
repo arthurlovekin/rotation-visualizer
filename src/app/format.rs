@@ -1,6 +1,16 @@
 /// Represents the text format detected from user input for a vector of numbers.
 /// Stores the delimiter and bracket scheme used for representing vectors as text.
 /// Auto-detected from pasted/typed input, then reused when formatting output text.
+/// 
+/// Definition of a Vector (in a string):
+/// An N-Vector is a sequence of exactly N numbers separated by a delimiter and
+/// enclosed in brackets.
+///     - The delimiter could be a space, comma, tab, newline, or semicolon (no mixing of multiple delimiters).
+///     - The brackets could be square, parentheses, curly, or none (no mixing of multiple bracket types).
+///     - The number could be a floating point number (with a decimal point, eg. `1.23`), an integer (eg. `123`), or a scientific notation number (eg. `1.23e4`).
+/// Whitespace (including, space, tab, newline) inside the vector is ignored (unless it is the delimiter)
+/// If there is any type of character before or after the vector (prefix or suffix), it doesn't affect the vector (though it is saved in the VectorFormat)
+/// Zero or multiple vectors in a string is not allowed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VectorFormat {
     /// Delimiter char between numbers: ',', ' ', '\t', ';', or '\n'
@@ -39,15 +49,59 @@ impl VectorFormat {
     }
 }
 
-// Definition of a Vector (in a string)
-// An N-Vector is a sequence of exactly N numbers separated by a delimiter and
-// enclosed in brackets.
-//     - The delimiter could be a space, comma, tab, newline, or semicolon (no mixing of multiple delimiters).
-//     - The brackets could be square, parentheses, curly, or none (no mixing of multiple bracket types).
-//     - The number could be a floating point number (with a decimal point, eg. `1.23`), an integer (eg. `123`), or a scientific notation number (eg. `1.23e4`).
-// Whitespace (including, space, tab, newline) inside the vector is ignored (unless it is the delimiter)
-// If there is any type of character before or after the vector (prefix or suffix), it doesn't affect the vector (though it is saved in the VectorFormat)
-// Zero or multiple vectors in a string is not allowed.
+/// Represents the text format detected from user input for a 2D matrix of numbers.
+/// Stores the delimiter and bracket scheme used for representing a matrix as text.
+/// Auto-detected from pasted/typed input, then reused when formatting output text.
+/// 
+/// Definition of a Matrix (in a string):
+/// An NxM matrix is a sequence of exactly N M-Vectors separated by a delimiter and
+/// enclosed in brackets.
+///     - The delimiter could be a comma, tab, newline, or semicolon (no mixing of multiple delimiters).
+///     - The brackets could be square, parentheses, curly, or none (no mixing of multiple bracket types).
+///     - The same vector format is used for all rows
+/// Whitespace (including, space, tab, newline) inside the matrix is ignored (unless it is the delimiter)
+/// If there is any type of character before or after the matrix (prefix or suffix), it doesn't affect the matrix (though it is saved in the MatrixFormat)
+/// Zero or multiple matrices in a string is not allowed.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatrixFormat {
+    pub vector_format: VectorFormat,
+    /// Delimiter char between rows: ',', '\t', '\n', or ';'
+    pub row_delimiter: char,
+    /// Opening bracket char: '[', '(', '{', or ' ' for bare (no brackets)
+    pub bracket_type: char,
+    /// Prefix before the matrix (eg. `np.array(`)
+    pub prefix: String,
+    /// Suffix after the matrix (eg. `)`)
+    pub suffix: String,
+}
+
+impl Default for MatrixFormat {
+    fn default() -> Self {
+        Self {
+            vector_format: VectorFormat::default(),
+            row_delimiter: ',',
+            bracket_type: '[',
+            prefix: String::new(),
+            suffix: String::new(),
+        }
+    }
+}
+
+impl MatrixFormat {
+    pub fn format_matrix<const R: usize, const C: usize>(&self, values: &[[f64; C]; R]) -> String {
+
+        let mut result = String::new();
+        result.push_str(&self.prefix.clone());
+        for (i, row) in values.iter().enumerate() {
+            result.push_str(&self.vector_format.format_vector(row));
+            if i < values.len() - 1 {
+                result.push(self.row_delimiter);
+            }
+        }
+        result.push_str(&self.suffix.clone());
+        result
+    }
+}
 
 /// Validates bracket matching using a stack (like the "valid parentheses" problem).
 /// Returns a list of matched bracket pairs: (open_pos, close_pos, bracket_type).
@@ -143,6 +197,12 @@ fn detect_delimiter_and_parse(content: &str) -> Result<(char, Vec<f64>), String>
     }
 }
 
+/// Parses a vector of numbers from a variety of text formats.
+/// Returns an `N`-length vector as `[f64; N]`, and the detected VectorFormat.
+/// 
+/// Supported formats:
+/// - brackets of different types: `[1, 0, 0]`, `(1, 0, 0)`, `{1, 0, 0}`, `1 0 0`
+/// - With wrappers: `np.array([1, 0, 0])`, `torch.tensor([1, 0, 0])`
 pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f64; N], VectorFormat), String> {
     if input.trim().is_empty() {
         return Err("Empty input".to_string());
@@ -209,9 +269,9 @@ pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f64; N],
 /// - Newline-separated rows: `1 0 0\n0 1 0\n0 0 1`
 ///
 /// Flat (1D) inputs are rejected.
-pub fn parse_matrix<const R: usize, const C: usize>(
+pub fn parse_matrix_and_format<const R: usize, const C: usize>(
     input: &str,
-) -> Result<[[f64; C]; R], String> {
+) -> Result<([[f64; C]; R], MatrixFormat), String> {
     if input.trim().is_empty() {
         return Err("Empty input".to_string());
     }
@@ -298,7 +358,14 @@ pub fn parse_matrix<const R: usize, const C: usize>(
         result[i].copy_from_slice(&numbers);
     }
 
-    Ok(result)
+    // TODO: Deduce the MatrixFormat from the input string instead of using the default values
+    Ok((result, MatrixFormat {
+        vector_format: VectorFormat::default(),
+        row_delimiter: ';',
+        bracket_type: '[',
+        prefix: String::new(),
+        suffix: String::new(),
+    }))
 }
 
 #[cfg(test)]
@@ -700,225 +767,485 @@ mod tests {
 
     #[test]
     fn matrix_nested_square_brackets_comma() {
-        let m = parse_matrix::<3, 3>("[[1, 0, 0], [0, 1, 0], [0, 0, 1]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("[[1, 0, 0], [0, 1, 0], [0, 0, 1]]").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_nested_parens_comma() {
-        let m = parse_matrix::<3, 3>("((1, 2, 3), (4, 5, 6), (7, 8, 9))").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("((1, 2, 3), (4, 5, 6), (7, 8, 9))").unwrap();
         assert_eq!(m, [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '(');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '(');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_nested_curly_comma() {
-        let m = parse_matrix::<3, 3>("{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '{');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '{');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_nested_space_separated() {
-        let m = parse_matrix::<3, 3>("[[1 0 0] [0 1 0] [0 0 1]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("[[1 0 0] [0 1 0] [0 0 1]]").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ' ');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ' ');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_nested_multiline() {
         let input = "[[1, 0, 0],\n [0, 1, 0],\n [0, 0, 1]]";
-        let m = parse_matrix::<3, 3>(input).unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>(input).unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     // --- Wrapper prefixes ---
 
     #[test]
     fn matrix_numpy_wrapper() {
-        let m = parse_matrix::<3, 3>("np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "np.array(");
+        assert_eq!(fmt.suffix, ")");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_numpy_multiline() {
         let input = "np.array([[ 1.,  0.,  0.],\n         [ 0.,  1.,  0.],\n         [ 0.,  0.,  1.]])";
-        let m = parse_matrix::<3, 3>(input).unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>(input).unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "np.array(");
+        assert_eq!(fmt.suffix, ")");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_torch_tensor_wrapper() {
-        let m = parse_matrix::<2, 2>("torch.tensor([[1, 0], [0, 1]])").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<2, 2>("torch.tensor([[1, 0], [0, 1]])").unwrap();
         assert_eq!(m, [[1.0, 0.0], [0.0, 1.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "torch.tensor(");
+        assert_eq!(fmt.suffix, ")");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     // --- Matlab-style semicolons ---
 
     #[test]
     fn matrix_matlab_semicolons_spaces() {
-        let m = parse_matrix::<3, 3>("[1 0 0; 0 1 0; 0 0 1]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("[1 0 0; 0 1 0; 0 0 1]").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ';');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ' ');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_matlab_semicolons_commas() {
-        let m = parse_matrix::<3, 3>("[1, 0, 0; 0, 1, 0; 0, 0, 1]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("[1, 0, 0; 0, 1, 0; 0, 0, 1]").unwrap();
+        // Vector format
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ';');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
         assert_eq!(m, IDENTITY_3X3);
     }
 
     #[test]
     fn matrix_bare_semicolons() {
-        let m = parse_matrix::<3, 3>("1 0 0; 0 1 0; 0 0 1").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("1 0 0; 0 1 0; 0 0 1").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, ' ');
+        assert_eq!(fmt.row_delimiter, ';');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ' ');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_semicolons_trailing() {
         // Trailing semicolon (Matlab allows this)
-        let m = parse_matrix::<3, 3>("[1 0 0; 0 1 0; 0 0 1;]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("[1 0 0; 0 1 0; 0 0 1;]").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ';');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ' ');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     // --- Newline-separated rows ---
 
     #[test]
     fn matrix_newline_space_separated() {
-        let m = parse_matrix::<3, 3>("1 0 0\n0 1 0\n0 0 1").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("1 0 0\n0 1 0\n0 0 1").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, ' ');
+        assert_eq!(fmt.row_delimiter, '\n');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ' ');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_newline_comma_separated() {
-        let m = parse_matrix::<3, 3>("1, 0, 0\n0, 1, 0\n0, 0, 1").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("1, 0, 0\n0, 1, 0\n0, 0, 1").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, ' ');
+        assert_eq!(fmt.row_delimiter, '\n');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_newline_tab_separated() {
-        let m = parse_matrix::<3, 3>("1\t0\t0\n0\t1\t0\n0\t0\t1").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("1\t0\t0\n0\t1\t0\n0\t0\t1").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, ' ');
+        assert_eq!(fmt.row_delimiter, '\n');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, '\t');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_newline_with_blank_lines() {
-        let m = parse_matrix::<3, 3>("\n1 0 0\n\n0 1 0\n\n0 0 1\n").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("\n1 0 0\n\n0 1 0\n\n0 0 1\n").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, ' ');
+        assert_eq!(fmt.row_delimiter, '\n');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ' ');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_newline_trailing_commas() {
         // Rows end with commas (sloppy copy-paste)
-        let m = parse_matrix::<3, 3>("1, 0, 0,\n0, 1, 0,\n0, 0, 1").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("1, 0, 0,\n0, 1, 0,\n0, 0, 1").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, ' ');
+        assert_eq!(fmt.row_delimiter, '\n');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     // --- Non-square matrices ---
 
     #[test]
     fn matrix_2x3_nested() {
-        let m = parse_matrix::<2, 3>("[[1, 2, 3], [4, 5, 6]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<2, 3>("[[1, 2, 3], [4, 5, 6]]").unwrap();
         assert_eq!(m, [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_3x2_nested() {
-        let m = parse_matrix::<3, 2>("[[1, 2], [3, 4], [5, 6]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 2>("[[1, 2], [3, 4], [5, 6]]").unwrap();
         assert_eq!(m, [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     // --- Special numbers ---
 
     #[test]
     fn matrix_negative_numbers() {
-        let m = parse_matrix::<2, 2>("[[-1, 0], [0, -1]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<2, 2>("[[-1, 0], [0, -1]]").unwrap();
         assert_eq!(m, [[-1.0, 0.0], [0.0, -1.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_scientific_notation() {
-        let m = parse_matrix::<2, 2>("[[1e0, 0], [0, 1e0]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<2, 2>("[[1e0, 0], [0, 1e0]]").unwrap();
         assert_eq!(m, [[1.0, 0.0], [0.0, 1.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_floats() {
-        let m = parse_matrix::<2, 2>("[[0.707, -0.707], [0.707, 0.707]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<2, 2>("[[0.707, -0.707], [0.707, 0.707]]").unwrap();
         assert_eq!(m, [[0.707, -0.707], [0.707, 0.707]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_integers_as_floats() {
-        let m = parse_matrix::<2, 2>("[[1, 0], [0, 1]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<2, 2>("[[1, 0], [0, 1]]").unwrap();
         assert_eq!(m, [[1.0, 0.0], [0.0, 1.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     // --- Whitespace variations ---
 
     #[test]
     fn matrix_nested_uneven_whitespace() {
-        let m = parse_matrix::<3, 3>("[[ 1,  0,0],[  0, 1, 0 ],[0,0 ,  1]]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<3, 3>("[[ 1,  0,0],[  0, 1, 0 ],[0,0 ,  1]]").unwrap();
         assert_eq!(m, IDENTITY_3X3);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_leading_trailing_whitespace() {
-        let m = parse_matrix::<2, 2>("  [[1, 0], [0, 1]]  ").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<2, 2>("  [[1, 0], [0, 1]]  ").unwrap();
         assert_eq!(m, [[1.0, 0.0], [0.0, 1.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ',');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, '[');
+        assert_eq!(fmt.vector_format.number_delimiter, ',');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     #[test]
     fn matrix_matlab_uneven_whitespace() {
-        let m = parse_matrix::<2, 2>("[1  0 ;  0  1]").unwrap();
+        let (m, fmt) = parse_matrix_and_format::<2, 2>("[1  0 ;  0  1]").unwrap();
         assert_eq!(m, [[1.0, 0.0], [0.0, 1.0]]);
+        // Matrix format
+        assert_eq!(fmt.bracket_type, '[');
+        assert_eq!(fmt.row_delimiter, ';');
+        assert_eq!(fmt.prefix, "");
+        assert_eq!(fmt.suffix, "");
+        // Vector format (row)
+        assert_eq!(fmt.vector_format.bracket_type, ' ');
+        assert_eq!(fmt.vector_format.number_delimiter, ' ');
+        assert_eq!(fmt.vector_format.prefix, "");
+        assert_eq!(fmt.vector_format.suffix, "");
     }
 
     // --- Error cases ---
 
     #[test]
     fn matrix_empty_input() {
-        assert!(parse_matrix::<3, 3>("").is_err());
-        assert!(parse_matrix::<3, 3>("   ").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("   ").is_err());
     }
 
     #[test]
     fn matrix_wrong_row_count_nested() {
         // 2 row brackets instead of 3
-        assert!(parse_matrix::<3, 3>("[[1, 0, 0], [0, 1, 0]]").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("[[1, 0, 0], [0, 1, 0]]").is_err());
     }
 
     #[test]
     fn matrix_wrong_column_count_nested() {
         // Rows have 4 elements instead of 3
-        let err = parse_matrix::<3, 3>("[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]").unwrap_err();
+        let err = parse_matrix_and_format::<3, 3>("[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]").unwrap_err();
         assert!(err.contains("columns"), "expected column error, got: {}", err);
     }
 
     #[test]
     fn matrix_jagged_rows_nested() {
         // Rows have different lengths
-        assert!(parse_matrix::<2, 2>("[[1, 2], [3]]").is_err());
+        assert!(parse_matrix_and_format::<2, 2>("[[1, 2], [3]]").is_err());
     }
 
     #[test]
     fn matrix_mismatched_brackets() {
-        assert!(parse_matrix::<2, 2>("[[1, 0], [0, 1)").is_err());
+        assert!(parse_matrix_and_format::<2, 2>("[[1, 0], [0, 1)").is_err());
     }
 
     #[test]
     fn matrix_no_numbers() {
-        assert!(parse_matrix::<2, 2>("[[]]").is_err());
+        assert!(parse_matrix_and_format::<2, 2>("[[]]").is_err());
     }
 
     #[test]
     fn matrix_unclosed_bracket() {
-        assert!(parse_matrix::<2, 2>("[[1, 0], [0, 1]").is_err());
+        assert!(parse_matrix_and_format::<2, 2>("[[1, 0], [0, 1]").is_err());
     }
 
     #[test]
     fn matrix_flattened_is_err() {
-        assert!(parse_matrix::<3, 3>("1, 2, 3, 4, 5, 6, 7, 8, 9").is_err());
-        assert!(parse_matrix::<3, 3>("1 2 3 4 5 6 7 8 9").is_err());
-        assert!(parse_matrix::<3, 3>("1\n2\n3\n4\n5\n6\n7\n8\n9").is_err());
-        assert!(parse_matrix::<3, 3>("[1, 2, 3, 4, 5, 6, 7, 8, 9]").is_err());
-        assert!(parse_matrix::<3, 3>("[1 2 3 4 5 6 7 8 9]").is_err());
-        assert!(parse_matrix::<3, 3>("[1\n2\n3\n4\n5\n6\n7\n8\n9]").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("1, 2, 3, 4, 5, 6, 7, 8, 9").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("1 2 3 4 5 6 7 8 9").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("1\n2\n3\n4\n5\n6\n7\n8\n9").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("[1, 2, 3, 4, 5, 6, 7, 8, 9]").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("[1 2 3 4 5 6 7 8 9]").is_err());
+        assert!(parse_matrix_and_format::<3, 3>("[1\n2\n3\n4\n5\n6\n7\n8\n9]").is_err());
     }
 }
