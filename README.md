@@ -7,6 +7,7 @@ On the right of the screen is a black canvas with the un-rotated (gray) and rota
     - Dropdown to choose the control method:
         - Axis-angle: One handle on the tip of a 3D unit-vector, and another handle on a ring around the unit-vector.
         - Euler-angle: Three rings, one for each axis, each one with a handle.
+        - None (if you don't want to control the rotation and don't want to see the handles)
     - Checkbox to toggle showing the coordinate axes
     - Checkbox to toggle showing the non-rotated version of the mesh
 On the left of the screen are the algebraic representations of the rotation (see below). Each representation includes:
