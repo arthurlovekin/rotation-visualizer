@@ -11,6 +11,7 @@ crate-type = ["cdylib", "lib"]
 console_error_panic_hook = "0.1"
 leptos = { version = "0.8.15", features = ["csr"] }
 three-d = "0.18.2"
+three-d-asset = { version = "0.9", features = ["obj"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 log = "0.4"
@@ -18,3 +19,4 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"
 console_log = "1"
+gloo-net = "0.6"
