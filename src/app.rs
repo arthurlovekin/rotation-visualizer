@@ -48,10 +48,10 @@ fn QuaternionBox(
         let xyzw = is_xyzw.get();
         if active_input.get() != ActiveInput::Quaternion {
             let q = rot.as_quaternion();
-            let values: Vec<f64> = if xyzw {
-                vec![q.x as f64, q.y as f64, q.z as f64, q.w as f64]
+            let values: Vec<f32> = if xyzw {
+                vec![q.x as f32, q.y as f32, q.z as f32, q.w as f32]
             } else {
-                vec![q.w as f64, q.x as f64, q.y as f64, q.z as f64]
+                vec![q.w as f32, q.x as f32, q.y as f32, q.z as f32]
             };
             text.set(fmt.format_vector(&values));
         }
@@ -136,9 +136,9 @@ fn AxisAngle3DBox(
         if active_input.get() != ActiveInput::AxisAngle3D {
             let aa = rot.as_axis_angle();
             let values = vec![
-                (aa.x * aa.angle) as f64,
-                (aa.y * aa.angle) as f64,
-                (aa.z * aa.angle) as f64,
+                (aa.x * aa.angle) as f32,
+                (aa.y * aa.angle) as f32,
+                (aa.z * aa.angle) as f32,
             ];
             text.set(fmt.format_vector(&values));
         }
@@ -222,8 +222,8 @@ pub fn main() {
     #[cfg(target_arch = "wasm32")]
     {
         let dpr = leptos::web_sys::window().unwrap().device_pixel_ratio();
-        let css_width = canvas_element.client_width() as f64;
-        let css_height = canvas_element.client_height() as f64;
+        let css_width = canvas_element.client_width() as f32;
+        let css_height = canvas_element.client_height() as f32;
         canvas_element.set_width((css_width * dpr) as u32);
         canvas_element.set_height((css_height * dpr) as u32);
     }
@@ -263,8 +263,8 @@ pub fn main() {
                 .unwrap()
                 .unchecked_into::<leptos::web_sys::HtmlCanvasElement>();
             let dpr = leptos::web_sys::window().unwrap().device_pixel_ratio();
-            let css_width = canvas.client_width() as f64;
-            let css_height = canvas.client_height() as f64;
+            let css_width = canvas.client_width() as f32;
+            let css_height = canvas.client_height() as f32;
             let buffer_width = (css_width * dpr) as u32;
             let buffer_height = (css_height * dpr) as u32;
             if canvas.width() != buffer_width || canvas.height() != buffer_height {

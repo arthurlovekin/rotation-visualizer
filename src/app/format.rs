@@ -35,7 +35,7 @@ impl Default for VectorFormat {
 }
 
 impl VectorFormat {
-    pub fn format_vector(&self, values: &[f64]) -> String {
+    pub fn format_vector(&self, values: &[f32]) -> String {
         let mut result = String::new();
         result.push_str(&self.prefix.clone());
         for (i, value) in values.iter().enumerate() {
@@ -88,7 +88,7 @@ impl Default for MatrixFormat {
 }
 
 impl MatrixFormat {
-    pub fn format_matrix<const R: usize, const C: usize>(&self, values: &[[f64; C]; R]) -> String {
+    pub fn format_matrix<const R: usize, const C: usize>(&self, values: &[[f32; C]; R]) -> String {
 
         let mut result = String::new();
         result.push_str(&self.prefix.clone());
@@ -141,8 +141,8 @@ fn validate_brackets(input: &str) -> Result<Vec<(usize, usize, char)>, String> {
     Ok(pairs)
 }
 
-/// Trims each part from the iterator, skips empty strings, and parses as f64.
-fn parse_number_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Vec<f64>, String> {
+/// Trims each part from the iterator, skips empty strings, and parses as f32.
+fn parse_number_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Vec<f32>, String> {
     let mut numbers = Vec::new();
     for part in parts {
         let trimmed = part.trim();
@@ -150,7 +150,7 @@ fn parse_number_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Vec<f6
             continue;
         }
         let num = trimmed
-            .parse::<f64>()
+            .parse::<f32>()
             .map_err(|e| format!("Failed to parse '{}' as a number: {}", trimmed, e))?;
         numbers.push(num);
     }
@@ -162,7 +162,7 @@ fn parse_number_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Vec<f6
 
 /// Detects the delimiter type from the content string and parses all numbers.
 /// Priority order: comma > semicolon > tab > newline > space.
-fn detect_delimiter_and_parse(content: &str) -> Result<(char, Vec<f64>), String> {
+fn detect_delimiter_and_parse(content: &str) -> Result<(char, Vec<f32>), String> {
     let has_comma = content.contains(',');
     let has_semicolon = content.contains(';');
     let has_tab = content.contains('\t');
@@ -189,7 +189,7 @@ fn detect_delimiter_and_parse(content: &str) -> Result<(char, Vec<f64>), String>
         let mut numbers = Vec::new();
         for part in &parts {
             let num = part
-                .parse::<f64>()
+                .parse::<f32>()
                 .map_err(|e| format!("Failed to parse '{}' as a number: {}", part, e))?;
             numbers.push(num);
         }
@@ -198,12 +198,12 @@ fn detect_delimiter_and_parse(content: &str) -> Result<(char, Vec<f64>), String>
 }
 
 /// Parses a vector of numbers from a variety of text formats.
-/// Returns an `N`-length vector as `[f64; N]`, and the detected VectorFormat.
+/// Returns an `N`-length vector as `[f32; N]`, and the detected VectorFormat.
 /// 
 /// Supported formats:
 /// - brackets of different types: `[1, 0, 0]`, `(1, 0, 0)`, `{1, 0, 0}`, `1 0 0`
 /// - With wrappers: `np.array([1, 0, 0])`, `torch.tensor([1, 0, 0])`
-pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f64; N], VectorFormat), String> {
+pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f32; N], VectorFormat), String> {
     if input.trim().is_empty() {
         return Err("Empty input".to_string());
     }
@@ -260,7 +260,7 @@ pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f64; N],
 }
 
 /// Parses a matrix of numbers from a variety of text formats.
-/// Returns an `R`-row by `C`-column matrix as `[[f64; C]; R]`.
+/// Returns an `R`-row by `C`-column matrix as `[[f32; C]; R]`.
 ///
 /// Supported formats:
 /// - Nested brackets: `[[1, 0, 0], [0, 1, 0], [0, 0, 1]]`
@@ -271,7 +271,7 @@ pub fn parse_vector_and_format<const N: usize>(input: &str) -> Result<([f64; N],
 /// Flat (1D) inputs are rejected.
 pub fn parse_matrix_and_format<const R: usize, const C: usize>(
     input: &str,
-) -> Result<([[f64; C]; R], MatrixFormat), String> {
+) -> Result<([[f32; C]; R], MatrixFormat), String> {
     if input.trim().is_empty() {
         return Err("Empty input".to_string());
     }
@@ -383,7 +383,7 @@ pub fn parse_matrix_and_format<const R: usize, const C: usize>(
         return Err(format!("Expected {} rows, got {}", R, row_contents.len()));
     }
 
-    let mut result = [[0.0f64; C]; R];
+    let mut result = [[0.0f32; C]; R];
     let mut number_delimiter = ' ';
     for (i, row_str) in row_contents.iter().enumerate() {
         let (delim, numbers) = detect_delimiter_and_parse(row_str)?;
@@ -823,7 +823,7 @@ mod tests {
     // Matrix parsing tests
     // ===================================================================
 
-    const IDENTITY_3X3: [[f64; 3]; 3] = [
+    const IDENTITY_3X3: [[f32; 3]; 3] = [
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
         [0.0, 0.0, 1.0],
