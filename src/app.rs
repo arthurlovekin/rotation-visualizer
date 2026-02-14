@@ -111,24 +111,71 @@ fn QuaternionBox(
         }
     };
 
-    // When a slider is dragged: parse value and update rotation
-    let on_slider_input = move |idx: usize, ev: leptos::web_sys::Event| {
-        let value_str = input_event_value(&ev);
-        if let Ok(val) = value_str.parse::<f32>() {
-            let q = rotation.get_untracked().as_quaternion();
-            let (w, x, y, z) = if is_xyzw.get_untracked() {
-                let mut v = [q.x, q.y, q.z, q.w];
-                v[idx] = val.clamp(-1.0, 1.0);
-                (v[3], v[0], v[1], v[2])
-            } else {
-                let mut v = [q.w, q.x, q.y, q.z];
-                v[idx] = val.clamp(-1.0, 1.0);
-                (v[0], v[1], v[2], v[3])
-            };
-            if let Ok(new_q) = Quaternion::try_new(w, x, y, z) {
-                rotation.set(Rotation::from(new_q));
+    // Convert value in [-1, 1] to CSS left percentage for the track
+    let value_to_pct = |v: f32| ((v + 1.0) / 2.0 * 100.0).clamp(0.0, 100.0);
+
+    // Update rotation when a dual-handle slider is dragged.
+    // handle_idx: 0 = q representation, 1 = -q representation.
+    // For handle 1, the track position gives the -q component, so we negate for q.
+    let apply_slider_drag = move |idx: usize, handle_idx: usize, raw_value: f32| {
+        let component_value = if handle_idx == 0 {
+            raw_value.clamp(-1.0, 1.0)
+        } else {
+            (-raw_value).clamp(-1.0, 1.0)
+        };
+        let q = rotation.get_untracked().as_quaternion();
+        let (w, x, y, z) = if is_xyzw.get_untracked() {
+            let mut v = [q.x, q.y, q.z, q.w];
+            v[idx] = component_value;
+            (v[3], v[0], v[1], v[2])
+        } else {
+            let mut v = [q.w, q.x, q.y, q.z];
+            v[idx] = component_value;
+            (v[0], v[1], v[2], v[3])
+        };
+        if let Ok(new_q) = Quaternion::try_new(w, x, y, z) {
+            rotation.set(Rotation::from(new_q));
+        }
+    };
+
+    // Pointer position on track -> value in [-1, 1]
+    let track_pos_to_value = |client_x: f64, track_left: f64, track_width: f64| -> f32 {
+        if track_width <= 0.0 {
+            return 0.0;
+        }
+        let t = ((client_x - track_left) / track_width).clamp(0.0, 1.0);
+        (t * 2.0 - 1.0) as f32
+    };
+
+    let dragging = RwSignal::new(None::<(usize, usize)>);
+
+    let on_pointer_down = move |idx: usize, handle_idx: usize, ev: leptos::web_sys::PointerEvent| {
+        if let Some(target) = ev.target().and_then(|t| t.dyn_into::<leptos::web_sys::Element>().ok()) {
+            let _ = target.set_pointer_capture(ev.pointer_id());
+        }
+        dragging.set(Some((idx, handle_idx)));
+    };
+
+    let on_pointer_move = move |ev: leptos::web_sys::PointerEvent| {
+        if let Some((idx, handle_idx)) = dragging.get() {
+            let target = ev
+                .target()
+                .and_then(|t| t.dyn_into::<leptos::web_sys::Element>().ok());
+            let track = target.and_then(|el| el.parent_element());
+            if let Some(track) = track {
+                let rect = track.get_bounding_client_rect();
+                let raw = track_pos_to_value(
+                    ev.client_x() as f64,
+                    rect.left(),
+                    rect.width(),
+                );
+                apply_slider_drag(idx, handle_idx, raw);
             }
         }
+    };
+
+    let on_pointer_up = move |_: leptos::web_sys::PointerEvent| {
+        dragging.set(None);
     };
 
     view! {
@@ -160,20 +207,32 @@ fn QuaternionBox(
                     let values = slider_values();
                     let labels = slider_labels();
                     (0..4).map(move |i| {
-                        let on_input = move |ev: leptos::web_sys::Event| on_slider_input(i, ev);
                         let value = values[i];
+                        let pos_pct = value_to_pct(value);
+                        let neg_pct = value_to_pct(-value);
+                        let on_down_pos = move |ev: leptos::web_sys::PointerEvent| on_pointer_down(i, 0, ev);
+                        let on_down_neg = move |ev: leptos::web_sys::PointerEvent| on_pointer_down(i, 1, ev);
                         view! {
                             <div class="quat-slider-row">
-                                <label>{labels[i]}" = "
-                                    <input
-                                        type="range"
-                                        min="-1"
-                                        max="1"
-                                        step="0.01"
-                                        prop:value=move || format!("{:.4}", value)
-                                        on:input=on_input
+                                <span class="quat-slider-label">{labels[i]}" ="</span>
+                                <div class="dual-slider-track">
+                                    <div
+                                        class="dual-slider-handle dual-handle-pos"
+                                        style:left=move || format!("{}%", pos_pct)
+                                        on:pointerdown=on_down_pos
+                                        on:pointermove=on_pointer_move
+                                        on:pointerup=on_pointer_up
+                                        on:pointercancel=on_pointer_up
                                     />
-                                </label>
+                                    <div
+                                        class="dual-slider-handle dual-handle-neg"
+                                        style:left=move || format!("{}%", neg_pct)
+                                        on:pointerdown=on_down_neg
+                                        on:pointermove=on_pointer_move
+                                        on:pointerup=on_pointer_up
+                                        on:pointercancel=on_pointer_up
+                                    />
+                                </div>
                                 <span class="quat-slider-value">{move || format!("{:.4}", value)}</span>
                             </div>
                         }

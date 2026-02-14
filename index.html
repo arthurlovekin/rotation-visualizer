@@ -48,15 +48,37 @@
         align-items: center;
         gap: 8px;
       }
-      .quat-slider-row label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
+      .quat-slider-label {
         min-width: 2em;
       }
-      .quat-slider-row input[type="range"] {
+      .dual-slider-track {
+        position: relative;
         flex: 1;
         min-width: 80px;
+        height: 20px;
+        background: linear-gradient(to right, #333 0%, #555 50%, #333 100%);
+        border-radius: 4px;
+      }
+      .dual-slider-handle {
+        position: absolute;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        cursor: grab;
+        z-index: 1;
+      }
+      .dual-slider-handle:active {
+        cursor: grabbing;
+      }
+      .dual-handle-pos {
+        background: #4a9eff;
+        border: 2px solid #6bb3ff;
+      }
+      .dual-handle-neg {
+        background: #ff9e4a;
+        border: 2px solid #ffb36b;
       }
       .quat-slider-value {
         font-family: monospace;
