@@ -243,6 +243,25 @@ fn QuaternionBox(
     }
 }
 
+/// The two axis-angle representations for a rotation: (primary, alternate).
+/// Primary is from the quaternion (magnitude in [0, 2π]).
+/// Alternate is -v * (2π - θ) / θ, giving the same rotation.
+fn axis_angle_two_reps(aa: &AxisAngle) -> ([f32; 3], Option<[f32; 3]>) {
+    use std::f32::consts::PI;
+    const TWO_PI: f32 = 2.0 * PI;
+    let v = [aa.x * aa.angle, aa.y * aa.angle, aa.z * aa.angle];
+    let theta = aa.angle;
+    if theta < 1e-10 {
+        return (v, None); // identity
+    }
+    if (theta - TWO_PI).abs() < 1e-6 {
+        return (v, Some([0.0, 0.0, 0.0])); // 2π = identity, show both
+    }
+    let scale = (TWO_PI - theta) / theta;
+    let alt = [-v[0] * scale, -v[1] * scale, -v[2] * scale];
+    (v, Some(alt))
+}
+
 // ---------------------------------------------------------------------------
 // AxisAngle3DBox
 // ---------------------------------------------------------------------------
@@ -252,20 +271,37 @@ fn AxisAngle3DBox(
     format: RwSignal<VectorFormat>,
     active_input: RwSignal<ActiveInput>,
 ) -> impl IntoView {
+    use std::f32::consts::PI;
+    const TWO_PI: f32 = 2.0 * PI;
+
     let text = RwSignal::new(format.get_untracked().format_vector(&[0.0, 0.0, 0.0]));
+
+    // When rotation is identity (2π or -2π), keep primary at user's mouse position.
+    // Secondary stays at 0. Cleared when user drags secondary or when rotation changes from quaternion.
+    let preferred_identity_repr = RwSignal::new(None::<[f32; 3]>);
+
+    // Clear preferred when rotation changes from another source (e.g. quaternion edit).
+    Effect::new(move || {
+        let rot = rotation.get();
+        let aa = rot.as_axis_angle();
+        let angle = aa.angle;
+        let is_identity = angle < 1e-10;
+        let pref = preferred_identity_repr.get();
+        if pref.is_some() && !is_identity {
+            preferred_identity_repr.set(None);
+        }
+    });
 
     // Reactive effect: reformat when rotation/format changes (if not editing).
     Effect::new(move || {
         let rot = rotation.get();
         let fmt = format.get();
         if active_input.get() != ActiveInput::AxisAngle3D {
-            let aa = rot.as_axis_angle();
-            let values = vec![
-                (aa.x * aa.angle) as f32,
-                (aa.y * aa.angle) as f32,
-                (aa.z * aa.angle) as f32,
-            ];
-            text.set(fmt.format_vector(&values));
+            let display = preferred_identity_repr.get().unwrap_or_else(|| {
+                let aa = rot.as_axis_angle();
+                [aa.x * aa.angle, aa.y * aa.angle, aa.z * aa.angle]
+            });
+            text.set(fmt.format_vector(&display));
         }
     });
 
@@ -281,14 +317,124 @@ fn AxisAngle3DBox(
             if angle > 1e-10 {
                 let aa = AxisAngle::new(ax / angle, ay / angle, az / angle, angle);
                 rotation.set(Rotation::from(aa));
+                if (angle - TWO_PI).abs() < 1e-6 {
+                    preferred_identity_repr.set(Some([ax, ay, az]));
+                } else {
+                    preferred_identity_repr.set(None);
+                }
             } else {
                 rotation.set(Rotation::default());
+                preferred_identity_repr.set(None);
             }
         }
     };
 
     let on_blur = move |_: leptos::web_sys::FocusEvent| {
         active_input.set(ActiveInput::None);
+    };
+
+    // Both axis-angle representations: primary (never teleports) and secondary (can teleport to 0).
+    // For identity: primary = preferred (user's mouse pos e.g. 2π), secondary = (0,0,0).
+    let two_reps = move || {
+        let aa = rotation.get().as_axis_angle();
+        let angle = aa.angle;
+        if angle < 1e-10 {
+            let pref = preferred_identity_repr.get();
+            let primary = pref.unwrap_or([0.0, 0.0, 0.0]);
+            let secondary = if pref.is_some() {
+                Some([0.0, 0.0, 0.0])
+            } else {
+                None
+            };
+            (primary, secondary)
+        } else {
+            axis_angle_two_reps(&aa)
+        }
+    };
+
+    // Value in [-2π, 2π] -> CSS left percentage
+    let value_to_pct = |v: f32| ((v + TWO_PI) / (2.0 * TWO_PI) * 100.0).clamp(0.0, 100.0);
+
+    // Update rotation when axis-angle slider is dragged.
+    // handle_idx: 0 = primary (never teleports), 1 = secondary (can teleport to 0)
+    let apply_slider_drag = move |idx: usize, handle_idx: usize, raw_value: f32| {
+        let component_value = raw_value.clamp(-TWO_PI, TWO_PI);
+        let aa = rotation.get_untracked().as_axis_angle();
+        let (primary, alternate) = if aa.angle < 1e-10 {
+            let pref = preferred_identity_repr.get_untracked();
+            let p = pref.unwrap_or([0.0, 0.0, 0.0]);
+            let a = pref.map(|_| [0.0, 0.0, 0.0]);
+            (p, a)
+        } else {
+            axis_angle_two_reps(&aa)
+        };
+        let (vx, vy, vz) = if handle_idx == 0 {
+            let mut v = primary;
+            v[idx] = component_value;
+            (v[0], v[1], v[2])
+        } else if let Some(alt) = alternate {
+            let mut v = alt;
+            v[idx] = component_value;
+            (v[0], v[1], v[2])
+        } else {
+            let mut v = primary;
+            v[idx] = component_value;
+            (v[0], v[1], v[2])
+        };
+        let angle = (vx * vx + vy * vy + vz * vz).sqrt();
+        let is_identity = angle < 1e-10 || (angle - TWO_PI).abs() < 1e-6;
+        if is_identity {
+            rotation.set(Rotation::default());
+            if handle_idx == 0 {
+                preferred_identity_repr.set(Some([vx, vy, vz]));
+            } else {
+                preferred_identity_repr.set(None);
+            }
+        } else {
+            let aa = AxisAngle::new(vx / angle, vy / angle, vz / angle, angle);
+            rotation.set(Rotation::from(aa));
+            preferred_identity_repr.set(None);
+        }
+    };
+
+    // Pointer position on track -> value in [-2π, 2π]
+    let track_pos_to_value = |client_x: f64, track_left: f64, track_width: f64| -> f32 {
+        if track_width <= 0.0 {
+            return 0.0;
+        }
+        let t = ((client_x - track_left) / track_width).clamp(0.0, 1.0);
+        (t * 2.0 - 1.0) as f32 * TWO_PI
+    };
+
+    let dragging = RwSignal::new(None::<(usize, usize)>);
+
+    let on_pointer_down = move |idx: usize, handle_idx: usize, ev: leptos::web_sys::PointerEvent| {
+        if let Some(target) = ev.target().and_then(|t| t.dyn_into::<leptos::web_sys::Element>().ok()) {
+            let _ = target.set_pointer_capture(ev.pointer_id());
+        }
+        dragging.set(Some((idx, handle_idx)));
+    };
+
+    let on_pointer_move = move |ev: leptos::web_sys::PointerEvent| {
+        if let Some((idx, handle_idx)) = dragging.get() {
+            let target = ev
+                .target()
+                .and_then(|t| t.dyn_into::<leptos::web_sys::Element>().ok());
+            let track = target.and_then(|el| el.parent_element());
+            if let Some(track) = track {
+                let rect = track.get_bounding_client_rect();
+                let raw = track_pos_to_value(
+                    ev.client_x() as f64,
+                    rect.left(),
+                    rect.width(),
+                );
+                apply_slider_drag(idx, handle_idx, raw);
+            }
+        }
+    };
+
+    let on_pointer_up = move |_: leptos::web_sys::PointerEvent| {
+        dragging.set(None);
     };
 
     view! {
@@ -300,6 +446,58 @@ fn AxisAngle3DBox(
                 on:input=on_input
                 on:blur=on_blur
             />
+            <div class="axis-angle-sliders">
+                {move || {
+                    let (primary, alternate) = two_reps();
+                    let labels = ["x", "y", "z"];
+                    (0..3).map(move |i| {
+                        let prim_val = primary[i];
+                        let alt_val = alternate.map(|a| a[i]);
+                        let show_alt = alt_val.map(|av| (av - prim_val).abs() > 1e-6).unwrap_or(false);
+                        let prim_pct = value_to_pct(prim_val);
+                        let alt_pct = alt_val.map(value_to_pct);
+                        let on_down_prim = move |ev: leptos::web_sys::PointerEvent| on_pointer_down(i, 0, ev);
+                        let on_down_alt = move |ev: leptos::web_sys::PointerEvent| on_pointer_down(i, 1, ev);
+                        view! {
+                            <div class="axis-angle-slider-row">
+                                <span class="axis-angle-slider-label">{labels[i]}" ="</span>
+                                <div class="axis-angle-slider-track">
+                                    <div
+                                        class="axis-angle-slider-handle axis-angle-handle-main"
+                                        style:left=move || format!("{}%", prim_pct)
+                                        on:pointerdown=on_down_prim
+                                        on:pointermove=on_pointer_move
+                                        on:pointerup=on_pointer_up
+                                        on:pointercancel=on_pointer_up
+                                    />
+                                    {move || show_alt.then(|| {
+                                        let apct = alt_pct.unwrap_or(0.0);
+                                        view! {
+                                            <div
+                                                class="axis-angle-slider-handle axis-angle-handle-reduced"
+                                                style:left=format!("{}%", apct)
+                                                on:pointerdown=on_down_alt
+                                                on:pointermove=on_pointer_move
+                                                on:pointerup=on_pointer_up
+                                                on:pointercancel=on_pointer_up
+                                            />
+                                        }
+                                    })}
+                                </div>
+                                <span class="axis-angle-slider-value">
+                                    {move || {
+                                        if show_alt {
+                                            format!("{:.3} | {:.3}", prim_val, alt_val.unwrap())
+                                        } else {
+                                            format!("{:.3}", prim_val)
+                                        }
+                                    }}
+                                </span>
+                            </div>
+                        }
+                    }).collect_view()
+                }}
+            </div>
         </div>
     }
 }

@@ -86,6 +86,55 @@
         font-size: 0.9em;
         color: #aaa;
       }
+      .axis-angle-sliders {
+        margin-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .axis-angle-slider-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .axis-angle-slider-label {
+        min-width: 2em;
+      }
+      .axis-angle-slider-track {
+        position: relative;
+        flex: 1;
+        min-width: 80px;
+        height: 20px;
+        background: linear-gradient(to right, #333 0%, #555 50%, #333 100%);
+        border-radius: 4px;
+      }
+      .axis-angle-slider-handle {
+        position: absolute;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        cursor: grab;
+        z-index: 1;
+      }
+      .axis-angle-slider-handle:active {
+        cursor: grabbing;
+      }
+      .axis-angle-handle-main {
+        background: #4a9eff;
+        border: 2px solid #6bb3ff;
+      }
+      .axis-angle-handle-reduced {
+        background: #9e4aff;
+        border: 2px solid #b36bff;
+      }
+      .axis-angle-slider-value {
+        font-family: monospace;
+        min-width: 10em;
+        font-size: 0.9em;
+        color: #aaa;
+      }
     </style>
   </head>
   <body>
