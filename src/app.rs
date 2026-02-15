@@ -6,12 +6,15 @@ use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 
 mod format;
+mod quaternion;
+mod quaternion_slider_group;
 mod rotation;
 mod slider_widget;
 
 use format::{parse_vector_and_format, VectorFormat};
-use slider_widget::{MultiHandleSlider, MultiHandleSliderConfig, SliderMarker};
+use quaternion_slider_group::QuaternionSliderGroup;
 use rotation::{AxisAngle, Quaternion, Rotation};
+use slider_widget::{MultiHandleSliderConfig, SliderMarker};
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
 impl MultiHandleSliderConfig {
@@ -125,6 +128,8 @@ fn QuaternionBox(
         set_is_xyzw.set(false);
     };
 
+    let quat_config = MultiHandleSliderConfig::quaternion_component();
+
     view! {
         <div>
             <h2>"Quaternion"</h2>
@@ -149,6 +154,7 @@ fn QuaternionBox(
                 on:input=on_input
                 on:blur=on_blur
             />
+            <QuaternionSliderGroup rotation=rotation format_config=quat_config />
         </div>
     }
 }
@@ -241,29 +247,10 @@ fn App(
         });
     }
 
-    // Example: angle slider (0..2π) with one handle - can be wired to rotation later
-    let angle_value = RwSignal::new(0.0_f64);
-    let angle_config = MultiHandleSliderConfig::angle_2pi();
-
-    // Example: quaternion component slider with one handle
-    let quat_x = RwSignal::new(0.0_f64);
-    let quat_config = MultiHandleSliderConfig::quaternion_component();
-
     view! {
         <h1>"Rotation Visualizer"</h1>
         <QuaternionBox rotation=rotation format=format active_input=active_input />
         <RotationVectorBox rotation=rotation format=format active_input=active_input />
-        <h2>"Sliders (demo)"</h2>
-        <MultiHandleSlider
-            label="Angle (0..2π)"
-            config=angle_config
-            values=vec![angle_value]
-        />
-        <MultiHandleSlider
-            label="Quaternion X"
-            config=quat_config
-            values=vec![quat_x]
-        />
     }
 }
 

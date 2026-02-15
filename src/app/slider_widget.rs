@@ -165,14 +165,22 @@ fn format_value_4ch_3sig(v: f64) -> String {
 }
 
 #[component]
-pub fn MultiHandleSlider(
+pub fn MultiHandleSlider<F, C>(
     /// Label shown above the slider.
     label: &'static str,
     /// Slider configuration (min, max, markers).
     config: MultiHandleSliderConfig,
     /// One RwSignal per handle. Each handle's value is stored in its signal.
     values: Vec<RwSignal<f64>>,
-) -> impl IntoView {
+    /// Callback invoked when a handle is pressed (receives handle index).
+    on_handle_pointerdown: F,
+    /// Callback invoked when a handle's value changes during drag (handle_index, new_value).
+    on_value_change: C,
+) -> impl IntoView
+where
+    F: Fn(usize) + Clone + 'static,
+    C: Fn(usize, f64) + Clone + 'static,
+{
     let track_ref = NodeRef::<leptos::html::Div>::new();
     let min = config.min;
     let max = config.max;
@@ -214,7 +222,10 @@ pub fn MultiHandleSlider(
                         let values = values.clone();
                         let min = min;
                         let max = max;
+                        let on_handle_pointerdown = on_handle_pointerdown.clone();
+                        let on_value_change = on_value_change.clone();
                         let on_pointerdown = move |ev: PointerEvent| {
+                            on_handle_pointerdown(i);
                             ev.prevent_default();
                             let track = track_ref.get_untracked();
                             let track_el: leptos::web_sys::HtmlElement = match track {
@@ -233,6 +244,7 @@ pub fn MultiHandleSlider(
                                 let raw_value = fraction_to_value(fraction, min, max);
                                 let new_value = raw_value.clamp(min, max);
                                 value_signal.set(new_value);
+                                on_value_change(i, new_value);
                             };
                             update_value(ev.client_x() as f64);
                             let document = leptos::web_sys::window()
@@ -245,12 +257,14 @@ pub fn MultiHandleSlider(
                                 let track_width = track_width;
                                 let min = min;
                                 let max = max;
+                                let on_value_change = on_value_change.clone();
                                 move |ev: leptos::web_sys::PointerEvent| {
                                     let fraction = ((ev.client_x() as f64 - track_left) / track_width)
                                         .clamp(0.0, 1.0);
                                     let raw_value = fraction_to_value(fraction, min, max);
                                     let new_value = raw_value.clamp(min, max);
                                     value_signal.set(new_value);
+                                    on_value_change(i, new_value);
                                 }
                             }) as Box<dyn FnMut(_)>);
                             type ClosureType = wasm_bindgen::closure::Closure<dyn FnMut(leptos::web_sys::PointerEvent)>;
