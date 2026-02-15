@@ -1,7 +1,8 @@
-use std::ops::Mul;
+use std::ops::{Mul};
+use std::cmp::PartialEq;
 use std::ops::{Index, IndexMut};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub struct Quaternion {
     pub w: f32,
     pub x: f32,
@@ -13,22 +14,27 @@ impl Quaternion {
     /// Create a new unit quaternion (normalizes the input).
     /// Panics if the input is a zero quaternion.
     pub fn new(w: f32, x: f32, y: f32, z: f32) -> Self {
-        Self::try_new(w, x, y, z)
-            .expect("Quaternion is zero, did you mean to create [0.0,0.0,0.0,1.0]?")
+        Self::try_new(w, x, y, z).unwrap_or_else(|e| panic!("{}", e))
     }
 
-    /// Try to create a new unit quaternion. Returns Err for zero quaternions.
+    /// Try to create a new unit quaternion. Returns Err if the norm is zero.
     pub fn try_new(w: f32, x: f32, y: f32, z: f32) -> Result<Self, String> {
-        let norm = (w * w + x * x + y * y + z * z).sqrt();
-        if norm == 0.0 {
+        let norm_sq = w * w + x * x + y * y + z * z;
+        if norm_sq == 0.0 {
             return Err("Quaternion is zero".to_string());
         }
+        let norm = norm_sq.sqrt();
         Ok(Self {
             w: w / norm,
             x: x / norm,
             y: y / norm,
             z: z / norm,
         })
+    }
+
+    // Each quaternion has a dual that represents the same rotation 
+    pub fn dual(&self) -> Self {
+        Self { w: -self.w, x: -self.x, y: -self.y, z: -self.z }
     }
 }
 
@@ -52,6 +58,21 @@ impl Mul for Quaternion {
     }
 }
 
+impl PartialEq for Quaternion {
+    fn eq(&self, other: &Self) -> bool {
+        (self.w == other.w && self.x == other.x && self.y == other.y && self.z == other.z) ||
+        (self.w == -other.w && self.x == -other.x && self.y == -other.y && self.z == -other.z)
+    }
+}
+
+impl From<AxisAngle> for Quaternion {
+    fn from(axis_angle: AxisAngle) -> Self {
+        let half = axis_angle.angle / 2.0;
+        let s = half.sin();
+        Self::new(half.cos(), axis_angle.x * s, axis_angle.y * s, axis_angle.z * s)
+    }
+}
+
 impl From<RotationMatrix> for Quaternion {
     fn from(matrix: RotationMatrix) -> Self {
         let mut quat = Quaternion::default();
@@ -72,17 +93,30 @@ pub struct AxisAngle {
 }
 
 impl AxisAngle {
+    // Create a new axis-angle representation, where the axis is a unit vector and the angle is radians from [0, 2π)
     pub fn new(x: f32, y: f32, z: f32, angle: f32) -> Self {
-        Self { x, y, z, angle }
+        Self::try_new(x, y, z, angle).unwrap_or_else(|e| panic!("{}", e))
     }
 
-    pub fn as_quaternion<T: From<Quaternion>>(&self) -> T {
-        let half = self.angle / 2.0;
-        let s = half.sin();
-        Quaternion::new(half.cos(), self.x * s, self.y * s, self.z * s).into()
+    pub fn try_new(x: f32, y: f32, z: f32, angle: f32) -> Result<Self, String> {
+        let axis_norm_sq = x * x + y * y + z * z;
+        if axis_norm_sq == 0.0 {
+            return Err("Axis norm cannot be zero".to_string());
+        }
+        let axis_norm = axis_norm_sq.sqrt();
+        Ok(
+            Self { 
+                x: x / axis_norm, 
+                y: y / axis_norm, 
+                z: z / axis_norm, 
+                angle: angle % (2.0 * std::f32::consts::PI) 
+            }
+        )
     }
+}
 
-    pub fn from_quaternion(quat: Quaternion) -> Self {
+impl From<Quaternion> for AxisAngle {
+    fn from(quat: Quaternion) -> Self {
         let angle = 2.0 * quat.w.acos();
         let s = (1.0 - quat.w * quat.w).sqrt();
         if s < 1e-6 {
@@ -91,7 +125,7 @@ impl AxisAngle {
             Self::new(quat.x / s, quat.y / s, quat.z / s, angle)
         }
     }
-}
+}    
 
 pub struct RotationMatrix(pub [[f32; 3]; 3]);
 
@@ -173,7 +207,7 @@ impl Rotation {
     }
 
     pub fn as_axis_angle(&self) -> AxisAngle {
-        AxisAngle::from_quaternion(self.quat)
+        AxisAngle::from(self.quat)
     }
 
     pub fn as_rotation_matrix(&self) -> RotationMatrix {
@@ -190,16 +224,14 @@ impl From<Quaternion> for Rotation {
 
 impl From<AxisAngle> for Rotation {
     fn from(axis_angle: AxisAngle) -> Self {
-        Rotation {
-            quat: axis_angle.as_quaternion(),
-        }
+        Rotation { quat: Quaternion::from(axis_angle) }
     }
 }
 
 impl From<RotationMatrix> for Rotation {
     fn from(matrix: RotationMatrix) -> Self {
         Rotation {
-            quat: (matrix).into(),
+            quat: Quaternion::from(matrix),
         }
     }
 }
