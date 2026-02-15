@@ -56,6 +56,28 @@ fn fraction_to_value(fraction: f64, min: f64, max: f64) -> f64 {
     min + fraction * (max - min)
 }
 
+/// Format value to 3 significant figures, 4 characters wide.
+fn format_value_4ch_3sig(v: f64) -> String {
+    if v == 0.0 {
+        return "0.00".to_string();
+    }
+    let abs = v.abs();
+    let s = if abs >= 100.0 {
+        format!("{:.0}", v)
+    } else if abs >= 10.0 {
+        format!("{:.1}", v)
+    } else if abs >= 1.0 {
+        format!("{:.2}", v)
+    } else if abs >= 0.1 {
+        format!("{:.2}", v)
+    } else if abs >= 0.01 {
+        format!("{:.3}", v)
+    } else {
+        format!("{:.3}", v)
+    };
+    s.chars().take(4).collect()
+}
+
 #[component]
 pub fn MultiHandleSlider(
     /// Label shown above the slider.
@@ -189,7 +211,7 @@ pub fn MultiHandleSlider(
                                 tabindex="0"
                             >
                                 <span class="slider-handle-value">
-                                    {move || format!("{:.3}", value_signal.get())}
+                                    {move || format_value_4ch_3sig(value_signal.get())}
                                 </span>
                             </div>
                         }
