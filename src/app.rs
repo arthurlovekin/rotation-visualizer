@@ -8,6 +8,7 @@ use leptos::wasm_bindgen::JsCast;
 mod format;
 mod quaternion;
 mod rotation;
+mod slider_group;
 mod slider_widget;
 
 use format::{parse_vector_and_format, VectorFormat};
