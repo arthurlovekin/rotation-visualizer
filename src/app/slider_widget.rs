@@ -96,6 +96,17 @@ const SLIDER_CSS: &str = r#"
   width: 4ch;
   text-align: center;
 }
+.slider-handle-dual {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 1em;
+  background: rgba(150, 180, 200, 0.6);
+  border-radius: 1px;
+  z-index: 1;
+  pointer-events: none;
+}
 "#;
 
 /// A marker displayed at a specific value along the slider track.
@@ -172,6 +183,9 @@ pub fn MultiHandleSlider<F, C>(
     config: MultiHandleSliderConfig,
     /// One RwSignal per handle. Each handle's value is stored in its signal.
     values: Vec<RwSignal<f64>>,
+    /// Optional dual value(s) shown as small tick(s), one per handle. Driven by caller (e.g. -value for quaternion). Empty = none.
+    #[prop(default = vec![])]
+    dual_values: Vec<RwSignal<f64>>,
     /// Callback invoked when a handle is pressed (receives handle index).
     on_handle_pointerdown: F,
     /// Callback invoked when a handle's value changes during drag (handle_index, new_value).
@@ -214,6 +228,37 @@ where
                                 <span class="slider-marker-tick"></span>
                                 <span class="slider-marker-label">{m.label.clone()}</span>
                             </div>
+                        }
+                    }).collect_view()}
+                    {(0..handle_count.min(dual_values.len())).map(|i| {
+                        let dual_signal = dual_values[i];
+                        let value_signal = values[i];
+                        let min = min;
+                        let max = max;
+                        view! {
+                            <div
+                                class="slider-handle-dual"
+                                style:left=move || {
+                                    let v = dual_signal.get();
+                                    let main_v = value_signal.get();
+                                    let range = (max - min).abs().max(1e-9);
+                                    if (v - main_v).abs() / range < 0.02 {
+                                        return "0%".to_string();
+                                    }
+                                    let frac = value_to_fraction(v, min, max);
+                                    format!("{}%", (frac * 100.0).min(100.0).max(0.0))
+                                }
+                                style:display=move || {
+                                    let v = dual_signal.get();
+                                    let main_v = value_signal.get();
+                                    let range = (max - min).abs().max(1e-9);
+                                    if (v - main_v).abs() / range < 0.02 {
+                                        "none"
+                                    } else {
+                                        "block"
+                                    }
+                                }
+                            ></div>
                         }
                     }).collect_view()}
                     {(0..handle_count).map(|i| {
