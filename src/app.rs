@@ -18,7 +18,7 @@ use rotation::{AxisAngle, Quaternion, Rotation};
 enum ActiveInput {
     None,
     Quaternion,
-    AxisAngle3D,
+    RotationVector,
 }
 
 // ---------------------------------------------------------------------------
@@ -122,10 +122,10 @@ fn QuaternionBox(
 }
 
 // ---------------------------------------------------------------------------
-// AxisAngle3DBox
+// RotationVectorBox
 // ---------------------------------------------------------------------------
 #[component]
-fn AxisAngle3DBox(
+fn RotationVectorBox(
     rotation: RwSignal<Rotation>,
     format: RwSignal<VectorFormat>,
     active_input: RwSignal<ActiveInput>,
@@ -136,12 +136,12 @@ fn AxisAngle3DBox(
     Effect::new(move || {
         let rot = rotation.get();
         let fmt = format.get();
-        if active_input.get() != ActiveInput::AxisAngle3D {
-            let aa = rot.as_axis_angle();
+        if active_input.get() != ActiveInput::RotationVector {
+            let rv = rot.as_rotation_vector();
             let values = vec![
-                (aa.x * aa.angle) as f32,
-                (aa.y * aa.angle) as f32,
-                (aa.z * aa.angle) as f32,
+                rv.x as f32,
+                rv.y as f32,
+                rv.z as f32,
             ];
             text.set(fmt.format_vector(&values));
         }
@@ -150,7 +150,7 @@ fn AxisAngle3DBox(
     let on_input = move |ev: leptos::web_sys::Event| {
         let value = input_event_value(&ev);
         text.set(value.clone());
-        active_input.set(ActiveInput::AxisAngle3D);
+        active_input.set(ActiveInput::RotationVector);
 
         if let Ok((nums, detected_fmt)) = parse_vector_and_format::<3>(&value) {
             format.set(detected_fmt);
@@ -212,7 +212,7 @@ fn App(
     view! {
         <h1>"Rotation Visualizer"</h1>
         <QuaternionBox rotation=rotation format=format active_input=active_input />
-        <AxisAngle3DBox rotation=rotation format=format active_input=active_input />
+        <RotationVectorBox rotation=rotation format=format active_input=active_input />
     }
 }
 
