@@ -73,6 +73,14 @@ impl From<AxisAngle> for Quaternion {
     }
 }
 
+impl From<RotationVector> for Quaternion {
+    fn from(vector: RotationVector) -> Self {
+        let norm = (vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]).sqrt();
+        let axis_angle = AxisAngle::new(vector[0], vector[1], vector[2], norm);
+        Self::from(axis_angle)
+    }
+}
+
 impl From<RotationMatrix> for Quaternion {
     fn from(matrix: RotationMatrix) -> Self {
         let mut quat = Quaternion::default();
@@ -84,7 +92,7 @@ impl From<RotationMatrix> for Quaternion {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub struct AxisAngle {
     pub x: f32,
     pub y: f32,
@@ -99,9 +107,12 @@ impl AxisAngle {
     }
 
     pub fn try_new(x: f32, y: f32, z: f32, angle: f32) -> Result<Self, String> {
+        if angle == 0.0 {
+            return Ok(Self { x: 0.0, y: 0.0, z: 0.0, angle: 0.0 });
+        }
         let axis_norm_sq = x * x + y * y + z * z;
         if axis_norm_sq == 0.0 {
-            return Err("Axis norm cannot be zero".to_string());
+            return Err("Axis norm cannot be zero unless angle is zero".to_string());
         }
         let axis_norm = axis_norm_sq.sqrt();
         Ok(
@@ -118,14 +129,72 @@ impl AxisAngle {
 impl From<Quaternion> for AxisAngle {
     fn from(quat: Quaternion) -> Self {
         let angle = 2.0 * quat.w.acos();
-        let s = (1.0 - quat.w * quat.w).sqrt();
-        if s < 1e-6 {
-            Self::new(1.0, 0.0, 0.0, 0.0)
-        } else {
-            Self::new(quat.x / s, quat.y / s, quat.z / s, angle)
+        if angle == 0.0 {
+            return Self::new(0.0, 0.0, 0.0, 0.0);
+        }
+        let s = (1.0 - quat.w * quat.w).sqrt(); // = sin(angle/2)
+        Self::new(quat.x / s, quat.y / s, quat.z / s, angle)
+    }
+}
+
+impl PartialEq for AxisAngle {
+    fn eq(&self, other: &Self) -> bool {
+       (self.angle == 0.0 && other.angle == 0.0) ||
+       (self.angle == other.angle && self.x == other.x && self.y == other.y && self.z == other.z)
+    }
+}
+
+// Rotation Vector: 3-dimensional vector which is co-directional to the axis of rotation and whose norm gives the angle of rotation
+pub struct RotationVector(pub [f32; 3]);
+
+impl RotationVector {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        // find the norm that is between 0 and 2π
+        let norm_sq = x * x + y * y + z * z;
+        if norm_sq == 0.0 {
+            Self([0.0, 0.0, 0.0])
+        }
+        else {
+            let norm = (norm_sq).sqrt();
+            let new_norm = (norm) % (2.0 * std::f32::consts::PI);
+            let norm_ratio = new_norm / norm;
+            Self([x * norm_ratio, y * norm_ratio, z * norm_ratio])
         }
     }
-}    
+}
+
+impl Index<usize> for RotationVector {
+    type Output = f32;
+
+    #[inline]
+    fn index(&self, row: usize) -> &Self::Output {
+        &self.0[row]
+    }
+}
+
+impl IndexMut<usize> for RotationVector {
+    #[inline]
+    fn index_mut(&mut self, row: usize) -> &mut Self::Output {
+        &mut self.0[row]
+    }
+}
+
+impl Default for RotationVector {
+    fn default() -> Self {
+        Self([0.0, 0.0, 0.0])
+    }
+}
+
+impl From<Quaternion> for RotationVector {
+    fn from(quat: Quaternion) -> Self {
+        let axis_angle = AxisAngle::from(quat);
+        Self::new(
+            axis_angle.x*axis_angle.angle,
+            axis_angle.y*axis_angle.angle,
+            axis_angle.z*axis_angle.angle
+        )
+    }
+}
 
 pub struct RotationMatrix(pub [[f32; 3]; 3]);
 
@@ -210,6 +279,10 @@ impl Rotation {
         AxisAngle::from(self.quat)
     }
 
+    pub fn as_rotation_vector(&self) -> RotationVector {
+        RotationVector::from(self.quat)
+    }
+
     pub fn as_rotation_matrix(&self) -> RotationMatrix {
         RotationMatrix::from(self.quat)
     }
@@ -233,6 +306,12 @@ impl From<RotationMatrix> for Rotation {
         Rotation {
             quat: Quaternion::from(matrix),
         }
+    }
+}
+
+impl From<RotationVector> for Rotation {
+    fn from(vector: RotationVector) -> Self {
+        Rotation { quat: Quaternion::from(vector) }
     }
 }
 
