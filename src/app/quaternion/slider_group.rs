@@ -33,7 +33,6 @@ pub fn QuaternionSliderGroup(
     let dual_w = Memo::new(move |_| -quat_w.get());
 
     let order = Rc::new(RefCell::new([X, Y, Z, W]));
-    let active_slider: Rc<RefCell<Option<usize>>> = Rc::new(RefCell::new(None));
 
     // Sync rotation -> sliders when rotation changes (text input) or on pointerup.
     Effect::new(move || {
@@ -103,55 +102,20 @@ pub fn QuaternionSliderGroup(
 
     let on_x = {
         let order = order.clone();
-        let active_slider = active_slider.clone();
-        move |_| {
-            touch_order(&mut order.borrow_mut(), X);
-            *active_slider.borrow_mut() = Some(X);
-        }
+        move |_| touch_order(&mut order.borrow_mut(), X)
     };
     let on_y = {
         let order = order.clone();
-        let active_slider = active_slider.clone();
-        move |_| {
-            touch_order(&mut order.borrow_mut(), Y);
-            *active_slider.borrow_mut() = Some(Y);
-        }
+        move |_| touch_order(&mut order.borrow_mut(), Y)
     };
     let on_z = {
         let order = order.clone();
-        let active_slider = active_slider.clone();
-        move |_| {
-            touch_order(&mut order.borrow_mut(), Z);
-            *active_slider.borrow_mut() = Some(Z);
-        }
+        move |_| touch_order(&mut order.borrow_mut(), Z)
     };
     let on_w = {
         let order = order.clone();
-        let active_slider = active_slider.clone();
-        move |_| {
-            touch_order(&mut order.borrow_mut(), W);
-            *active_slider.borrow_mut() = Some(W);
-        }
+        move |_| touch_order(&mut order.borrow_mut(), W)
     };
-
-    // Clear active on pointerup so rotation->sliders effect can sync from text input
-    #[cfg(target_arch = "wasm32")]
-    Effect::new(move || {
-        let document = leptos::web_sys::window()
-            .expect("window")
-            .document()
-            .expect("document");
-        let active_slider = active_slider.clone();
-        let closure = wasm_bindgen::closure::Closure::wrap(Box::new(
-            move |_ev: leptos::web_sys::PointerEvent| {
-                *active_slider.borrow_mut() = None;
-            },
-        ) as Box<dyn FnMut(_)>);
-        document
-            .add_event_listener_with_callback("pointerup", closure.as_ref().unchecked_ref())
-            .expect("add pointerup listener");
-        std::mem::forget(closure);
-    });
 
     let on_change_x = {
         let h = handle_value_change.clone();
