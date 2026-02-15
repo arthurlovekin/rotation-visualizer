@@ -15,17 +15,19 @@ On the left of the screen are the algebraic representations of the rotation (see
  - sliders (linear) and knobs (modular) that follow the numerical values of the representation, and can be dragged to change the values.
  - Dropdown to choose which convention to use for the representation (if applicable)
  - Description, answering the following questions:
-    - What is the relationship between these numbers and the orientation of a 3D object?
+    - What is the relationship between these numbers and the orientation of a 3D object? What are the units (if any)?
     - What are the constraints on the values of the representation?
     - What are the advantages and disadvantages of this representation? In what scenarios should it be used?
     - What are quirks and gotchas to be aware of?
 
 ## Representations:
 
-- Axis-Angle (3d)
+- Rotation Vector (3D)
+    - Description: a 3-dimensional vector which is co-directional to the axis of rotation and whose norm gives the angle of rotation in radians. The norm is simplified to be between 0 and 2π.
     - Visualization (can be toggled on/off): the space of possibilities is a ball; each possibility is an axis with the direction as a flag.
     - Widgets: Linear sliders for the three components
-- Axis-Angle (4d)
+- Axis-Angle (4D)
+    - Description: the combination of a 3-dimensional unit vector that points along the axis of rotation and a scalar angle of rotation (0-2π radians).
     - Constraints: the axis must be a unit vector
     - Widgets: Linear sliders for the four components
 - Quaternion
