@@ -4,13 +4,99 @@
 //! - N draggable handles per slider (for quaternion dual, angles mod 2π)
 //! - Configurable min/max per slider
 //! - Annotation markers (e.g., 0, π, 2π)
+//!
+//! This module is self-contained: it injects its own CSS when first used.
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use leptos::prelude::*;
 use leptos::web_sys::PointerEvent;
 use wasm_bindgen::JsCast;
+
+static SLIDER_STYLES_INJECTED: AtomicBool = AtomicBool::new(false);
+
+const SLIDER_CSS: &str = r#"
+.multi-handle-slider {
+  margin: 1em 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1em;
+}
+.slider-label {
+  flex: 0 0 auto;
+  font-size: 0.9em;
+  color: #aaa;
+  min-width: 8em;
+}
+.slider-track-container {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 2em;
+}
+.slider-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 0.35em;
+  background: #1e1e24;
+  border: none;
+  outline: none;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(80,80,90,0.5),
+              inset 0 1px 2px rgba(0,0,0,0.3);
+}
+.slider-marker {
+  position: absolute;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: 0.2em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.slider-marker-tick {
+  width: 1px;
+  height: 0.25em;
+  background: #333;
+  margin-bottom: 0.1em;
+}
+.slider-marker-label {
+  font-size: 0.65em;
+  color: #555;
+}
+.slider-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2.2em;
+  height: 1.1em;
+  background: rgba(100, 200, 255, 0.85);
+  border-radius: 1px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: auto;
+}
+.slider-handle:active {
+  cursor: grabbing;
+}
+.slider-handle-value {
+  font-size: 0.65em;
+  font-family: monospace;
+  color: rgba(200, 235, 255, 0.95);
+  width: 4ch;
+  text-align: center;
+}
+"#;
 
 /// A marker displayed at a specific value along the slider track.
 #[derive(Clone)]
@@ -100,9 +186,12 @@ pub fn MultiHandleSlider(
     }
 
     let handle_count = values.len();
+    let inject_styles = !SLIDER_STYLES_INJECTED.swap(true, Ordering::SeqCst);
 
     view! {
-        <div class="multi-handle-slider">
+        <>
+            {inject_styles.then(|| view! { <style>{SLIDER_CSS}</style> })}
+            <div class="multi-handle-slider">
             <label class="slider-label">{label}</label>
             <div class="slider-track-container">
                 <div class="slider-track" node_ref=track_ref>
@@ -219,5 +308,6 @@ pub fn MultiHandleSlider(
                 </div>
             </div>
         </div>
+        </>
     }
 }
