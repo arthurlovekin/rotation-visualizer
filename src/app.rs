@@ -7,12 +7,11 @@ use leptos::wasm_bindgen::JsCast;
 
 mod format;
 mod quaternion;
-mod quaternion_slider_group;
 mod rotation;
 mod slider_widget;
 
 use format::{parse_vector_and_format, VectorFormat};
-use quaternion_slider_group::QuaternionSliderGroup;
+use quaternion::QuaternionSliderGroup;
 use rotation::{AxisAngle, Quaternion, Rotation};
 use slider_widget::{MultiHandleSliderConfig, SliderMarker};
 
@@ -75,7 +74,7 @@ fn QuaternionBox(
     format: RwSignal<VectorFormat>,
     active_input: RwSignal<ActiveInput>,
 ) -> impl IntoView {
-    let (is_xyzw, set_is_xyzw) = signal(true);
+    let is_xyzw = RwSignal::new(true);
     let text = RwSignal::new(format.get_untracked().format_vector(&[0.0, 0.0, 0.0, 1.0]));
 
     // Reactive effect: reformat whenever the rotation, format, or convention
@@ -121,11 +120,11 @@ fn QuaternionBox(
     // Convention radio buttons also reset active_input so the effect reformats.
     let set_xyzw = move |_: leptos::web_sys::Event| {
         active_input.set(ActiveInput::None);
-        set_is_xyzw.set(true);
+        is_xyzw.set(true);
     };
     let set_wxyz = move |_: leptos::web_sys::Event| {
         active_input.set(ActiveInput::None);
-        set_is_xyzw.set(false);
+        is_xyzw.set(false);
     };
 
     let quat_config = MultiHandleSliderConfig::quaternion_component();
@@ -154,7 +153,7 @@ fn QuaternionBox(
                 on:input=on_input
                 on:blur=on_blur
             />
-            <QuaternionSliderGroup rotation=rotation format_config=quat_config />
+            <QuaternionSliderGroup rotation=rotation format_config=quat_config is_xyzw=is_xyzw />
         </div>
     }
 }

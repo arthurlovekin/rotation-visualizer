@@ -10,14 +10,17 @@ use std::rc::Rc;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 
-use super::quaternion::{normalize_lru, touch_order, X, Y, Z, W};
-use super::rotation::{Quaternion, Rotation};
-use super::slider_widget::{MultiHandleSlider, MultiHandleSliderConfig};
+use super::normalize::{normalize_lru, touch_order, X, Y, Z, W};
+use crate::app::rotation::{Quaternion, Rotation};
+use crate::app::slider_widget::{MultiHandleSlider, MultiHandleSliderConfig};
+
 
 #[component]
 pub fn QuaternionSliderGroup(
     rotation: RwSignal<Rotation>,
     format_config: MultiHandleSliderConfig,
+    /// true = xyzw (x,y,z,w), false = wxyz (w,x,y,z)
+    is_xyzw: RwSignal<bool>,
 ) -> impl IntoView {
     let quat_x = RwSignal::new(0.0_f64);
     let quat_y = RwSignal::new(0.0_f64);
@@ -28,8 +31,6 @@ pub fn QuaternionSliderGroup(
     let active_slider: Rc<RefCell<Option<usize>>> = Rc::new(RefCell::new(None));
 
     // Sync rotation -> sliders when rotation changes (text input) or on pointerup.
-    // During drag we use on_value_change; this effect only runs when rotation
-    // changes externally or when we clear active_slider on pointerup.
     Effect::new(move || {
         let rot = rotation.get();
         let q = rot.as_quaternion();
@@ -164,34 +165,22 @@ pub fn QuaternionSliderGroup(
         move |_: usize, v: f64| h(W, v)
     };
 
+    // Render sliders in order matching convention: xyzw = x,y,z,w; wxyz = w,x,y,z
+    // Use flexbox order to reorder without changing the DOM structure (avoids closure type mismatch)
     view! {
-        <MultiHandleSlider
-            label="x"
-            config=format_config.clone()
-            values=vec![quat_x]
-            on_handle_pointerdown=on_x
-            on_value_change=on_change_x
-        />
-        <MultiHandleSlider
-            label="y"
-            config=format_config.clone()
-            values=vec![quat_y]
-            on_handle_pointerdown=on_y
-            on_value_change=on_change_y
-        />
-        <MultiHandleSlider
-            label="z"
-            config=format_config.clone()
-            values=vec![quat_z]
-            on_handle_pointerdown=on_z
-            on_value_change=on_change_z
-        />
-        <MultiHandleSlider
-            label="w"
-            config=format_config.clone()
-            values=vec![quat_w]
-            on_handle_pointerdown=on_w
-            on_value_change=on_change_w
-        />
+        <div class="quaternion-sliders" style="display: flex; flex-direction: column;">
+            <div style=move || format!("order: {};", if is_xyzw.get() { 0 } else { 1 })>
+                <MultiHandleSlider label="x" config=format_config.clone() values=vec![quat_x] on_handle_pointerdown=on_x on_value_change=on_change_x />
+            </div>
+            <div style=move || format!("order: {};", if is_xyzw.get() { 1 } else { 2 })>
+                <MultiHandleSlider label="y" config=format_config.clone() values=vec![quat_y] on_handle_pointerdown=on_y on_value_change=on_change_y />
+            </div>
+            <div style=move || format!("order: {};", if is_xyzw.get() { 2 } else { 3 })>
+                <MultiHandleSlider label="z" config=format_config.clone() values=vec![quat_z] on_handle_pointerdown=on_z on_value_change=on_change_z />
+            </div>
+            <div style=move || format!("order: {};", if is_xyzw.get() { 3 } else { 0 })>
+                <MultiHandleSlider label="w" config=format_config.clone() values=vec![quat_w] on_handle_pointerdown=on_w on_value_change=on_change_w />
+            </div>
+        </div>
     }
 }

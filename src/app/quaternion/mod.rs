@@ -1,5 +1,6 @@
-//! Quaternion slider group with LRU-based normalization.
+//! Quaternion utilities: normalization and slider group.
 
 mod normalize;
+mod slider_group;
 
-pub use normalize::{normalize_lru, touch_order, X, Y, Z, W};
+pub use slider_group::QuaternionSliderGroup;

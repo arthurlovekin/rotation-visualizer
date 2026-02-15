@@ -29,7 +29,7 @@ const SLIDER_CSS: &str = r#"
   flex: 0 0 auto;
   font-size: 0.9em;
   color: #aaa;
-  min-width: 8em;
+  min-width: 1.5em;
 }
 .slider-track-container {
   position: relative;
