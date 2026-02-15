@@ -75,8 +75,8 @@ impl From<AxisAngle> for Quaternion {
 
 impl From<RotationVector> for Quaternion {
     fn from(vector: RotationVector) -> Self {
-        let norm = (vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]).sqrt();
-        let axis_angle = AxisAngle::new(vector[0], vector[1], vector[2], norm);
+        let norm = (vector.x * vector.x + vector.y * vector.y + vector.z * vector.z).sqrt();
+        let axis_angle = AxisAngle::new(vector.x, vector.y, vector.z, norm);
         Self::from(axis_angle)
     }
 }
@@ -145,20 +145,29 @@ impl PartialEq for AxisAngle {
 }
 
 // Rotation Vector: 3-dimensional vector which is co-directional to the axis of rotation and whose norm gives the angle of rotation
-pub struct RotationVector(pub [f32; 3]);
+#[derive(Debug, Clone, Copy)]
+pub struct RotationVector {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
 
 impl RotationVector {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         // find the norm that is between 0 and 2π
         let norm_sq = x * x + y * y + z * z;
         if norm_sq == 0.0 {
-            Self([0.0, 0.0, 0.0])
+            Self { x: 0.0, y: 0.0, z: 0.0 }
         }
         else {
             let norm = (norm_sq).sqrt();
             let new_norm = (norm) % (2.0 * std::f32::consts::PI);
             let norm_ratio = new_norm / norm;
-            Self([x * norm_ratio, y * norm_ratio, z * norm_ratio])
+            Self {
+                x: x * norm_ratio,
+                y: y * norm_ratio,
+                z: z * norm_ratio,
+            }
         }
     }
 }
@@ -168,20 +177,30 @@ impl Index<usize> for RotationVector {
 
     #[inline]
     fn index(&self, row: usize) -> &Self::Output {
-        &self.0[row]
+        match row {
+            0 => &self.x,
+            1 => &self.y,
+            2 => &self.z,
+            _ => panic!("index out of bounds: the len is 3 but the index is {}", row),
+        }
     }
 }
 
 impl IndexMut<usize> for RotationVector {
     #[inline]
     fn index_mut(&mut self, row: usize) -> &mut Self::Output {
-        &mut self.0[row]
+        match row {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            2 => &mut self.z,
+            _ => panic!("index out of bounds: the len is 3 but the index is {}", row),
+        }
     }
 }
 
 impl Default for RotationVector {
     fn default() -> Self {
-        Self([0.0, 0.0, 0.0])
+        Self { x: 0.0, y: 0.0, z: 0.0 }
     }
 }
 
