@@ -10,8 +10,38 @@ mod rotation;
 mod slider_widget;
 
 use format::{parse_vector_and_format, VectorFormat};
-use slider_widget::{MultiHandleSlider, MultiHandleSliderConfig};
+use slider_widget::{MultiHandleSlider, MultiHandleSliderConfig, SliderMarker};
 use rotation::{AxisAngle, Quaternion, Rotation};
+
+/// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
+impl MultiHandleSliderConfig {
+    /// Angle slider [0, 2π] with 0, π, 2π markers.
+    pub fn angle_2pi() -> Self {
+        let pi = std::f64::consts::PI;
+        Self {
+            min: 0.0,
+            max: 2.0 * pi,
+            markers: vec![
+                SliderMarker { value: 0.0, label: "0".to_string() },
+                SliderMarker { value: pi, label: "π".to_string() },
+                SliderMarker { value: 2.0 * pi, label: "2π".to_string() },
+            ],
+        }
+    }
+
+    /// Quaternion component slider [-1, 1].
+    pub fn quaternion_component() -> Self {
+        Self {
+            min: -1.0,
+            max: 1.0,
+            markers: vec![
+                SliderMarker { value: -1.0, label: "-1".to_string() },
+                SliderMarker { value: 0.0, label: "0".to_string() },
+                SliderMarker { value: 1.0, label: "1".to_string() },
+            ],
+        }
+    }
+}
 
 /// Which text box the user is currently editing.
 /// While editing, that box's text is driven by the user's keystrokes;

@@ -42,35 +42,6 @@ impl Default for MultiHandleSliderConfig {
     }
 }
 
-impl MultiHandleSliderConfig {
-    /// Create config for an angle slider [0, 2π] with 0, π, 2π markers.
-    pub fn angle_2pi() -> Self {
-        let pi = std::f64::consts::PI;
-        Self {
-            min: 0.0,
-            max: 2.0 * pi,
-            markers: vec![
-                SliderMarker { value: 0.0, label: "0".to_string() },
-                SliderMarker { value: pi, label: "π".to_string() },
-                SliderMarker { value: 2.0 * pi, label: "2π".to_string() },
-            ],
-        }
-    }
-
-    /// Create config for a quaternion component [-1, 1].
-    pub fn quaternion_component() -> Self {
-        Self {
-            min: -1.0,
-            max: 1.0,
-            markers: vec![
-                SliderMarker { value: -1.0, label: "-1".to_string() },
-                SliderMarker { value: 0.0, label: "0".to_string() },
-                SliderMarker { value: 1.0, label: "1".to_string() },
-            ],
-        }
-    }
-}
-
 /// Convert value to fraction [0, 1] for positioning.
 fn value_to_fraction(value: f64, min: f64, max: f64) -> f64 {
     let range = max - min;
