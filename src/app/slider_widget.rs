@@ -183,9 +183,9 @@ pub fn MultiHandleSlider<F, C>(
     config: MultiHandleSliderConfig,
     /// One RwSignal per handle. Each handle's value is stored in its signal.
     values: Vec<RwSignal<f64>>,
-    /// Optional dual value(s) shown as small tick(s), one per handle. Driven by caller (e.g. -value for quaternion). Empty = none.
+    /// Optional dual value(s) shown as small tick(s), one per handle. Derived from values (e.g. -value for quaternion). Empty = none.
     #[prop(default = vec![])]
-    dual_values: Vec<RwSignal<f64>>,
+    dual_values: Vec<Memo<f64>>,
     /// Callback invoked when a handle is pressed (receives handle index).
     on_handle_pointerdown: F,
     /// Callback invoked when a handle's value changes during drag (handle_index, new_value).

@@ -27,10 +27,10 @@ pub fn QuaternionSliderGroup(
     let quat_z = RwSignal::new(0.0_f64);
     let quat_w = RwSignal::new(1.0_f64);
 
-    let dual_x = RwSignal::new(0.0_f64);
-    let dual_y = RwSignal::new(0.0_f64);
-    let dual_z = RwSignal::new(0.0_f64);
-    let dual_w = RwSignal::new(0.0_f64);
+    let dual_x = Memo::new(move |_| -quat_x.get());
+    let dual_y = Memo::new(move |_| -quat_y.get());
+    let dual_z = Memo::new(move |_| -quat_z.get());
+    let dual_w = Memo::new(move |_| -quat_w.get());
 
     let order = Rc::new(RefCell::new([X, Y, Z, W]));
     let active_slider: Rc<RefCell<Option<usize>>> = Rc::new(RefCell::new(None));
@@ -44,20 +44,6 @@ pub fn QuaternionSliderGroup(
             quat_y.set(q.y as f64);
             quat_z.set(q.z as f64);
             quat_w.set(q.w as f64);
-        });
-    });
-
-    // Dual quaternion (-q) driven by main; updates during drag too.
-    Effect::new(move || {
-        let x = quat_x.get();
-        let y = quat_y.get();
-        let z = quat_z.get();
-        let w = quat_w.get();
-        batch(move || {
-            dual_x.set(-x);
-            dual_y.set(-y);
-            dual_z.set(-z);
-            dual_w.set(-w);
         });
     });
 
