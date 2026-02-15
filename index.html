@@ -37,6 +37,79 @@
       .red {
         color: red;
       }
+
+      /* Multi-handle slider */
+      .multi-handle-slider {
+        margin: 1em 0;
+      }
+      .slider-label {
+        display: block;
+        font-size: 0.9em;
+        margin-bottom: 0.4em;
+        color: #aaa;
+      }
+      .slider-track-container {
+        position: relative;
+        height: 2.5em;
+      }
+      .slider-track {
+        position: relative;
+        height: 1.2em;
+        margin-top: 0.5em;
+        background: linear-gradient(to right, #2a2a4a, #3a3a5a);
+        border-radius: 0.6em;
+        border: 1px solid #444;
+      }
+      .slider-marker {
+        position: absolute;
+        top: -0.3em;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        pointer-events: none;
+      }
+      .slider-marker-tick {
+        width: 2px;
+        height: 0.5em;
+        background: #666;
+        margin-bottom: 0.2em;
+      }
+      .slider-marker-label {
+        font-size: 0.7em;
+        color: #888;
+      }
+      .slider-handle {
+        position: absolute;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 1.2em;
+        height: 1.2em;
+        background: #5a7aff;
+        border-radius: 50%;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        z-index: 2;
+        pointer-events: auto;
+      }
+      .slider-handle:hover {
+        background: #6b8aff;
+      }
+      .slider-handle:active {
+        cursor: grabbing;
+      }
+      .slider-handle-value {
+        font-size: 0.6em;
+        color: white;
+        text-shadow: 0 0 2px black;
+        white-space: nowrap;
+        overflow: hidden;
+        max-width: 3em;
+        text-overflow: ellipsis;
+      }
     </style>
   </head>
   <body>
