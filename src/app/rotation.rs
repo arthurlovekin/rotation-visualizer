@@ -133,6 +133,10 @@ impl From<Quaternion> for AxisAngle {
             return Self::new(0.0, 0.0, 0.0, 0.0);
         }
         let s = (1.0 - quat.w * quat.w).sqrt(); // = sin(angle/2)
+        // s ≈ 0 when angle ≈ 2π (quat.w ≈ -1); avoid division by zero
+        if s < 1e-6 {
+            return Self::new(0.0, 0.0, 0.0, 0.0);
+        }
         Self::new(quat.x / s, quat.y / s, quat.z / s, angle)
     }
 }

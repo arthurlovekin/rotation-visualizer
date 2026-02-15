@@ -8,11 +8,13 @@ use leptos::wasm_bindgen::JsCast;
 mod format;
 mod quaternion;
 mod rotation;
+mod rotation_vector;
 mod slider_group;
 mod slider_widget;
 
 use format::{parse_vector_and_format, VectorFormat};
 use quaternion::QuaternionSliderGroup;
+use rotation_vector::RotationVectorSliderGroup;
 use rotation::{AxisAngle, Quaternion, Rotation};
 use slider_widget::{CustomSliderConfig, SliderMarker};
 
@@ -41,6 +43,22 @@ impl CustomSliderConfig {
                 SliderMarker { value: -1.0, label: "-1".to_string() },
                 SliderMarker { value: 0.0, label: "0".to_string() },
                 SliderMarker { value: 1.0, label: "1".to_string() },
+            ],
+        }
+    }
+
+    /// Rotation vector component slider [0, 2π - ε].
+    /// Avoids teleport at 2π by stopping just short. ε = 0.001 (thousandths).
+    pub fn rotation_vector_component() -> Self {
+        let pi = std::f64::consts::PI;
+        let max = 2.0 * pi - 0.001;
+        Self {
+            min: 0.0,
+            max,
+            markers: vec![
+                SliderMarker { value: 0.0, label: "0".to_string() },
+                SliderMarker { value: pi, label: "π".to_string() },
+                SliderMarker { value: max, label: "2π".to_string() },
             ],
         }
     }
@@ -207,6 +225,8 @@ fn RotationVectorBox(
         active_input.set(ActiveInput::None);
     };
 
+    let rv_config = CustomSliderConfig::rotation_vector_component();
+
     view! {
         <div>
             <h2>"Axis Angle (3d)"</h2>
@@ -216,6 +236,7 @@ fn RotationVectorBox(
                 on:input=on_input
                 on:blur=on_blur
             />
+            <RotationVectorSliderGroup rotation=rotation format_config=rv_config />
         </div>
     }
 }

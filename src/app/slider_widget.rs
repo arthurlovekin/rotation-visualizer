@@ -156,6 +156,9 @@ fn fraction_to_value(fraction: f64, min: f64, max: f64) -> f64 {
 
 /// Format value to 3 significant figures, 4 characters wide.
 fn format_value_4ch_3sig(v: f64) -> String {
+    if !v.is_finite() {
+        return "0.00".to_string();
+    }
     if v == 0.0 {
         return "0.00".to_string();
     }
