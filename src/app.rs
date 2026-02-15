@@ -168,6 +168,7 @@ fn QuaternionBox(
             </div>
             <input
                 type="text"
+                class="vector-input"
                 prop:value=move || text.get()
                 on:input=on_input
                 on:blur=on_blur
@@ -232,6 +233,7 @@ fn RotationVectorBox(
             <h2>"Axis Angle (3d)"</h2>
             <input
                 type="text"
+                class="vector-input vector-input-3"
                 prop:value=move || text.get()
                 on:input=on_input
                 on:blur=on_blur

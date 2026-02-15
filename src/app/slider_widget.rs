@@ -20,11 +20,11 @@ static SLIDER_STYLES_INJECTED: AtomicBool = AtomicBool::new(false);
 
 const SLIDER_CSS: &str = r#"
 .custom-slider {
-  margin: 1em 0;
+  margin: 0.2em 0;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 1em;
+  gap: 0.6em;
 }
 .slider-label {
   flex: 0 0 auto;
@@ -36,7 +36,7 @@ const SLIDER_CSS: &str = r#"
   position: relative;
   flex: 1;
   min-width: 0;
-  height: 2em;
+  height: 1.2em;
 }
 .slider-track {
   position: absolute;
@@ -44,7 +44,7 @@ const SLIDER_CSS: &str = r#"
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  height: 0.35em;
+  height: 0.28em;
   background: #1e1e24;
   border: none;
   outline: none;
@@ -56,7 +56,7 @@ const SLIDER_CSS: &str = r#"
   position: absolute;
   top: 100%;
   transform: translateX(-50%);
-  margin-top: 0.2em;
+  margin-top: 0.1em;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -64,20 +64,20 @@ const SLIDER_CSS: &str = r#"
 }
 .slider-marker-tick {
   width: 1px;
-  height: 0.25em;
+  height: 0.2em;
   background: #333;
-  margin-bottom: 0.1em;
+  margin-bottom: 0.05em;
 }
 .slider-marker-label {
-  font-size: 0.65em;
+  font-size: 0.5em;
   color: #555;
 }
 .slider-handle {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 2.2em;
-  height: 1.1em;
+  width: 1.8em;
+  height: 0.9em;
   background: rgba(100, 200, 255, 0.85);
   border-radius: 1px;
   cursor: grab;
@@ -91,7 +91,7 @@ const SLIDER_CSS: &str = r#"
   cursor: grabbing;
 }
 .slider-handle-value {
-  font-size: 0.65em;
+  font-size: 0.55em;
   font-family: monospace;
   color: rgba(200, 235, 255, 0.95);
   width: 4ch;
@@ -101,8 +101,8 @@ const SLIDER_CSS: &str = r#"
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 3px;
-  height: 1em;
+  width: 2px;
+  height: 0.8em;
   background: rgba(150, 180, 200, 0.6);
   border-radius: 1px;
   z-index: 1;

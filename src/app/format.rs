@@ -35,14 +35,38 @@ impl Default for VectorFormat {
 }
 
 impl VectorFormat {
+    /// Format a single number with exactly 8 digits after the decimal,
+    /// fixed width of 11 chars (reserves space for sign: leading space for positive).
+    fn format_number_8dec(v: f32) -> String {
+        format!("{:>11.8}", v)
+    }
+
+    /// Returns the opening and closing bracket chars for bracket_type.
+    /// For ' ' (bare), returns (None, None).
+    fn bracket_chars(bracket_type: char) -> (Option<char>, Option<char>) {
+        match bracket_type {
+            '[' => (Some('['), Some(']')),
+            '(' => (Some('('), Some(')')),
+            '{' => (Some('{'), Some('}')),
+            _ => (None, None),
+        }
+    }
+
     pub fn format_vector(&self, values: &[f32]) -> String {
         let mut result = String::new();
         result.push_str(&self.prefix);
+        let (open, close) = Self::bracket_chars(self.bracket_type);
+        if let Some(c) = open {
+            result.push(c);
+        }
         for (i, value) in values.iter().enumerate() {
-            result.push_str(&value.to_string());
+            result.push_str(&Self::format_number_8dec(*value));
             if i < values.len() - 1 {
                 result.push(self.number_delimiter);
             }
+        }
+        if let Some(c) = close {
+            result.push(c);
         }
         result.push_str(&self.suffix);
         result
