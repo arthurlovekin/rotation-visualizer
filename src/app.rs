@@ -13,10 +13,10 @@ mod slider_widget;
 use format::{parse_vector_and_format, VectorFormat};
 use quaternion::QuaternionSliderGroup;
 use rotation::{AxisAngle, Quaternion, Rotation};
-use slider_widget::{MultiHandleSliderConfig, SliderMarker};
+use slider_widget::{CustomSliderConfig, SliderMarker};
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
-impl MultiHandleSliderConfig {
+impl CustomSliderConfig {
     /// Angle slider [0, 2π] with 0, π, 2π markers.
     pub fn angle_2pi() -> Self {
         let pi = std::f64::consts::PI;
@@ -127,7 +127,7 @@ fn QuaternionBox(
         is_xyzw.set(false);
     };
 
-    let quat_config = MultiHandleSliderConfig::quaternion_component();
+    let quat_config = CustomSliderConfig::quaternion_component();
 
     view! {
         <div>

@@ -12,13 +12,13 @@ use leptos::wasm_bindgen::JsCast;
 
 use super::normalize::{normalize_lru, touch_order, X, Y, Z, W};
 use crate::app::rotation::{Quaternion, Rotation};
-use crate::app::slider_widget::{MultiHandleSlider, MultiHandleSliderConfig};
+use crate::app::slider_widget::{CustomSlider, CustomSliderConfig};
 
 
 #[component]
 pub fn QuaternionSliderGroup(
     rotation: RwSignal<Rotation>,
-    format_config: MultiHandleSliderConfig,
+    format_config: CustomSliderConfig,
     /// true = xyzw (x,y,z,w), false = wxyz (w,x,y,z)
     is_xyzw: RwSignal<bool>,
 ) -> impl IntoView {
@@ -70,7 +70,7 @@ pub fn QuaternionSliderGroup(
             let qz = quat_z;
             let qw = quat_w;
 
-            let f = wasm_bindgen::closure::Closure::wrap(Box::new(move || {
+            let f = leptos::wasm_bindgen::closure::Closure::wrap(Box::new(move || {
                 *raf_scheduled.borrow_mut() = false;
                 let Some((idx, _)) = pending.borrow_mut().take() else { return };
                 let values = [
@@ -100,55 +100,55 @@ pub fn QuaternionSliderGroup(
         }
     });
 
-    let on_x = {
+    let on_pointerdown_x = Rc::new({
         let order = order.clone();
-        move |_| touch_order(&mut order.borrow_mut(), X)
-    };
-    let on_y = {
+        move || touch_order(&mut order.borrow_mut(), X)
+    });
+    let on_pointerdown_y = Rc::new({
         let order = order.clone();
-        move |_| touch_order(&mut order.borrow_mut(), Y)
-    };
-    let on_z = {
+        move || touch_order(&mut order.borrow_mut(), Y)
+    });
+    let on_pointerdown_z = Rc::new({
         let order = order.clone();
-        move |_| touch_order(&mut order.borrow_mut(), Z)
-    };
-    let on_w = {
+        move || touch_order(&mut order.borrow_mut(), Z)
+    });
+    let on_pointerdown_w = Rc::new({
         let order = order.clone();
-        move |_| touch_order(&mut order.borrow_mut(), W)
-    };
+        move || touch_order(&mut order.borrow_mut(), W)
+    });
 
-    let on_change_x = {
+    let on_change_x = Rc::new({
         let h = handle_value_change.clone();
-        move |_: usize, v: f64| h(X, v)
-    };
-    let on_change_y = {
+        move |v: f64| h(X, v)
+    });
+    let on_change_y = Rc::new({
         let h = handle_value_change.clone();
-        move |_: usize, v: f64| h(Y, v)
-    };
-    let on_change_z = {
+        move |v: f64| h(Y, v)
+    });
+    let on_change_z = Rc::new({
         let h = handle_value_change.clone();
-        move |_: usize, v: f64| h(Z, v)
-    };
-    let on_change_w = {
+        move |v: f64| h(Z, v)
+    });
+    let on_change_w = Rc::new({
         let h = handle_value_change.clone();
-        move |_: usize, v: f64| h(W, v)
-    };
+        move |v: f64| h(W, v)
+    });
 
     // Render sliders in order matching convention: xyzw = x,y,z,w; wxyz = w,x,y,z
     // Use flexbox order to reorder without changing the DOM structure (avoids closure type mismatch)
     view! {
         <div class="quaternion-sliders" style="display: flex; flex-direction: column;">
             <div style=move || format!("order: {};", if is_xyzw.get() { 0 } else { 1 })>
-                <MultiHandleSlider label="x" config=format_config.clone() values=vec![quat_x] dual_values=vec![dual_x] on_handle_pointerdown=on_x on_value_change=on_change_x />
+                <CustomSlider label="x" config=format_config.clone() value=quat_x dual_value=dual_x on_handle_pointerdown=on_pointerdown_x.clone() on_value_change=on_change_x.clone() />
             </div>
             <div style=move || format!("order: {};", if is_xyzw.get() { 1 } else { 2 })>
-                <MultiHandleSlider label="y" config=format_config.clone() values=vec![quat_y] dual_values=vec![dual_y] on_handle_pointerdown=on_y on_value_change=on_change_y />
+                <CustomSlider label="y" config=format_config.clone() value=quat_y dual_value=dual_y on_handle_pointerdown=on_pointerdown_y.clone() on_value_change=on_change_y.clone() />
             </div>
             <div style=move || format!("order: {};", if is_xyzw.get() { 2 } else { 3 })>
-                <MultiHandleSlider label="z" config=format_config.clone() values=vec![quat_z] dual_values=vec![dual_z] on_handle_pointerdown=on_z on_value_change=on_change_z />
+                <CustomSlider label="z" config=format_config.clone() value=quat_z dual_value=dual_z on_handle_pointerdown=on_pointerdown_z.clone() on_value_change=on_change_z.clone() />
             </div>
             <div style=move || format!("order: {};", if is_xyzw.get() { 3 } else { 0 })>
-                <MultiHandleSlider label="w" config=format_config.clone() values=vec![quat_w] dual_values=vec![dual_w] on_handle_pointerdown=on_w on_value_change=on_change_w />
+                <CustomSlider label="w" config=format_config.clone() value=quat_w dual_value=dual_w on_handle_pointerdown=on_pointerdown_w.clone() on_value_change=on_change_w.clone() />
             </div>
         </div>
     }

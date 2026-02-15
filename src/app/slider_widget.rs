@@ -1,7 +1,8 @@
-//! Multi-handle slider widget for rotation visualizer.
+//! Custom slider widget for rotation visualizer.
 //!
 //! Supports:
-//! - N draggable handles per slider (for quaternion dual, angles mod 2π)
+//! - Single draggable handle per slider
+//! - Optional dual tick mark (e.g., -value for quaternion)
 //! - Configurable min/max per slider
 //! - Annotation markers (e.g., 0, π, 2π)
 //!
@@ -13,12 +14,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use leptos::prelude::*;
 use leptos::web_sys::PointerEvent;
-use wasm_bindgen::JsCast;
+use leptos::wasm_bindgen::JsCast;
 
 static SLIDER_STYLES_INJECTED: AtomicBool = AtomicBool::new(false);
 
 const SLIDER_CSS: &str = r#"
-.multi-handle-slider {
+.custom-slider {
   margin: 1em 0;
   display: flex;
   flex-direction: row;
@@ -118,9 +119,9 @@ pub struct SliderMarker {
     pub label: String,
 }
 
-/// Configuration for a multi-handle slider.
+/// Configuration for a custom slider.
 #[derive(Clone)]
-pub struct MultiHandleSliderConfig {
+pub struct CustomSliderConfig {
     /// Minimum value of the slider.
     pub min: f64,
     /// Maximum value of the slider.
@@ -129,7 +130,7 @@ pub struct MultiHandleSliderConfig {
     pub markers: Vec<SliderMarker>,
 }
 
-impl Default for MultiHandleSliderConfig {
+impl Default for CustomSliderConfig {
     fn default() -> Self {
         Self {
             min: 0.0,
@@ -176,44 +177,39 @@ fn format_value_4ch_3sig(v: f64) -> String {
 }
 
 #[component]
-pub fn MultiHandleSlider<F, C>(
+pub fn CustomSlider(
     /// Label shown above the slider.
     label: &'static str,
     /// Slider configuration (min, max, markers).
-    config: MultiHandleSliderConfig,
-    /// One RwSignal per handle. Each handle's value is stored in its signal.
-    values: Vec<RwSignal<f64>>,
-    /// Optional dual value(s) shown as small tick(s), one per handle. Derived from values (e.g. -value for quaternion). Empty = none.
-    #[prop(default = vec![])]
-    dual_values: Vec<Memo<f64>>,
-    /// Callback invoked when a handle is pressed (receives handle index).
-    on_handle_pointerdown: F,
-    /// Callback invoked when a handle's value changes during drag (handle_index, new_value).
-    on_value_change: C,
-) -> impl IntoView
-where
-    F: Fn(usize) + Clone + 'static,
-    C: Fn(usize, f64) + Clone + 'static,
-{
+    config: CustomSliderConfig,
+    /// The handle's value, stored in this signal.
+    value: RwSignal<f64>,
+    /// Optional dual value shown as a small tick (e.g., -value for quaternion).
+    #[prop(optional)]
+    dual_value: Option<Memo<f64>>,
+    /// Optional callback invoked when the handle is pressed (e.g., for LRU touch order).
+    #[prop(optional)]
+    on_handle_pointerdown: Option<Rc<dyn Fn()>>,
+    /// Optional callback invoked when the value changes during drag.
+    #[prop(optional)]
+    on_value_change: Option<Rc<dyn Fn(f64)>>,
+) -> impl IntoView {
     let track_ref = NodeRef::<leptos::html::Div>::new();
     let min = config.min;
     let max = config.max;
     let markers = config.markers;
 
-    // Clamp initial values
-    for value_signal in &values {
-        value_signal.update(|v| {
-            *v = v.clamp(min, max);
-        });
-    }
+    // Clamp initial value
+    value.update(|v| {
+        *v = v.clamp(min, max);
+    });
 
-    let handle_count = values.len();
     let inject_styles = !SLIDER_STYLES_INJECTED.swap(true, Ordering::SeqCst);
 
     view! {
         <>
             {inject_styles.then(|| view! { <style>{SLIDER_CSS}</style> })}
-            <div class="multi-handle-slider">
+            <div class="custom-slider">
             <label class="slider-label">{label}</label>
             <div class="slider-track-container">
                 <div class="slider-track" node_ref=track_ref>
@@ -230,9 +226,7 @@ where
                             </div>
                         }
                     }).collect_view()}
-                    {(0..handle_count.min(dual_values.len())).map(|i| {
-                        let dual_signal = dual_values[i];
-                        let value_signal = values[i];
+                    {dual_value.map(|dual_signal| {
                         let min = min;
                         let max = max;
                         view! {
@@ -240,7 +234,7 @@ where
                                 class="slider-handle-dual"
                                 style:left=move || {
                                     let v = dual_signal.get();
-                                    let main_v = value_signal.get();
+                                    let main_v = value.get();
                                     let range = (max - min).abs().max(1e-9);
                                     if (v - main_v).abs() / range < 0.02 {
                                         return "0%".to_string();
@@ -250,7 +244,7 @@ where
                                 }
                                 style:display=move || {
                                     let v = dual_signal.get();
-                                    let main_v = value_signal.get();
+                                    let main_v = value.get();
                                     let range = (max - min).abs().max(1e-9);
                                     if (v - main_v).abs() / range < 0.02 {
                                         "none"
@@ -260,17 +254,18 @@ where
                                 }
                             ></div>
                         }
-                    }).collect_view()}
-                    {(0..handle_count).map(|i| {
-                        let value_signal = values[i];
-                        let track_ref = track_ref.clone();
-                        let values = values.clone();
-                        let min = min;
-                        let max = max;
-                        let on_handle_pointerdown = on_handle_pointerdown.clone();
-                        let on_value_change = on_value_change.clone();
-                        let on_pointerdown = move |ev: PointerEvent| {
-                            on_handle_pointerdown(i);
+                    })}
+                    <div
+                        class="slider-handle"
+                        style:left=move || {
+                            let v = value.get();
+                            let frac = value_to_fraction(v, min, max);
+                            format!("{}%", (frac * 100.0).min(100.0).max(0.0))
+                        }
+                        on:pointerdown=move |ev: PointerEvent| {
+                            if let Some(ref cb) = on_handle_pointerdown {
+                                cb();
+                            }
                             ev.prevent_default();
                             let track = track_ref.get_untracked();
                             let track_el: leptos::web_sys::HtmlElement = match track {
@@ -280,7 +275,6 @@ where
                             let rect = track_el.get_bounding_client_rect();
                             let track_left = rect.left();
                             let track_width = rect.width();
-                            let value_signal = values[i];
                             let update_value = |client_x: f64| {
                                 if track_width <= 0.0 {
                                     return;
@@ -288,16 +282,18 @@ where
                                 let fraction = ((client_x - track_left) / track_width).clamp(0.0, 1.0);
                                 let raw_value = fraction_to_value(fraction, min, max);
                                 let new_value = raw_value.clamp(min, max);
-                                value_signal.set(new_value);
-                                on_value_change(i, new_value);
+                                value.set(new_value);
+                                if let Some(ref cb) = on_value_change {
+                                    cb(new_value);
+                                }
                             };
                             update_value(ev.client_x() as f64);
                             let document = leptos::web_sys::window()
                                 .expect("no window")
                                 .document()
                                 .expect("no document");
-                            let move_closure = wasm_bindgen::closure::Closure::wrap(Box::new({
-                                let value_signal = value_signal;
+                            let move_closure = leptos::wasm_bindgen::closure::Closure::wrap(Box::new({
+                                let value = value;
                                 let track_left = track_left;
                                 let track_width = track_width;
                                 let min = min;
@@ -308,13 +304,15 @@ where
                                         .clamp(0.0, 1.0);
                                     let raw_value = fraction_to_value(fraction, min, max);
                                     let new_value = raw_value.clamp(min, max);
-                                    value_signal.set(new_value);
-                                    on_value_change(i, new_value);
+                                    value.set(new_value);
+                                    if let Some(ref cb) = on_value_change {
+                                        cb(new_value);
+                                    }
                                 }
                             }) as Box<dyn FnMut(_)>);
-                            type ClosureType = wasm_bindgen::closure::Closure<dyn FnMut(leptos::web_sys::PointerEvent)>;
+                            type ClosureType = leptos::wasm_bindgen::closure::Closure<dyn FnMut(leptos::web_sys::PointerEvent)>;
                             let closures_rc = Rc::new(RefCell::new(None::<(ClosureType, ClosureType)>));
-                            let up_closure = wasm_bindgen::closure::Closure::wrap(Box::new({
+                            let up_closure = leptos::wasm_bindgen::closure::Closure::wrap(Box::new({
                                 let document = document.clone();
                                 let closures_rc = closures_rc.clone();
                                 move |ev: leptos::web_sys::PointerEvent| {
@@ -345,25 +343,14 @@ where
                                 );
                             }
                             std::mem::forget(closures_rc);
-                        };
-                        view! {
-                            <div
-                                class="slider-handle"
-                                style:left=move || {
-                                    let v = value_signal.get();
-                                    let frac = value_to_fraction(v, min, max);
-                                    format!("{}%", (frac * 100.0).min(100.0).max(0.0))
-                                }
-                                on:pointerdown=on_pointerdown
-                                role="slider"
-                                tabindex="0"
-                            >
-                                <span class="slider-handle-value">
-                                    {move || format_value_4ch_3sig(value_signal.get())}
-                                </span>
-                            </div>
                         }
-                    }).collect_view()}
+                        role="slider"
+                        tabindex="0"
+                    >
+                        <span class="slider-handle-value">
+                            {move || format_value_4ch_3sig(value.get())}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
