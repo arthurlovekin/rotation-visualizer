@@ -101,9 +101,19 @@ pub struct AxisAngle {
 }
 
 impl AxisAngle {
-    // Create a new axis-angle representation, where the axis is a unit vector and the angle is radians from [0, 2π)
+    /// Create a new axis-angle representation, where the axis is a unit vector and the angle is in radians from [0, 2π).
     pub fn new(x: f32, y: f32, z: f32, angle: f32) -> Self {
         Self::try_new(x, y, z, angle).unwrap_or_else(|e| panic!("{}", e))
+    }
+
+    /// Create from axis and angle in degrees. Converts to radians internally.
+    pub fn from_degrees(x: f32, y: f32, z: f32, angle_deg: f32) -> Self {
+        Self::new(x, y, z, angle_deg.to_radians())
+    }
+
+    /// Returns (x, y, z, angle) with the angle in degrees.
+    pub fn as_degrees(&self) -> (f32, f32, f32, f32) {
+        (self.x, self.y, self.z, self.angle.to_degrees())
     }
 
     pub fn try_new(x: f32, y: f32, z: f32, angle: f32) -> Result<Self, String> {
@@ -157,6 +167,7 @@ pub struct RotationVector {
 }
 
 impl RotationVector {
+    /// Create a rotation vector where the norm is the angle in radians.
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         // find the norm that is between 0 and 2π
         let norm_sq = x * x + y * y + z * z;
@@ -172,6 +183,22 @@ impl RotationVector {
                 y: y * norm_ratio,
                 z: z * norm_ratio,
             }
+        }
+    }
+
+    /// Create from components where the norm is the angle in degrees. Converts to radians internally.
+    pub fn from_degrees(x: f32, y: f32, z: f32) -> Self {
+        const DEG_TO_RAD: f32 = std::f32::consts::PI / 180.0;
+        Self::new(x * DEG_TO_RAD, y * DEG_TO_RAD, z * DEG_TO_RAD)
+    }
+
+    /// Returns a rotation vector where the norm is the angle in degrees.
+    pub fn as_degrees(&self) -> Self {
+        const RAD_TO_DEG: f32 = 180.0 / std::f32::consts::PI;
+        Self {
+            x: self.x * RAD_TO_DEG,
+            y: self.y * RAD_TO_DEG,
+            z: self.z * RAD_TO_DEG,
         }
     }
 }
