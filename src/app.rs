@@ -93,7 +93,7 @@ fn QuaternionBox(
     format: RwSignal<VectorFormat>,
     active_input: RwSignal<ActiveInput>,
 ) -> impl IntoView {
-    let is_xyzw = RwSignal::new(true);
+    let is_xyzw = RwSignal::new(false);
     let text = RwSignal::new(format.get_untracked().format_vector(&[0.0, 0.0, 0.0, 1.0]));
 
     // Reactive effect: reformat whenever the rotation, format, or convention
@@ -136,14 +136,13 @@ fn QuaternionBox(
         active_input.set(ActiveInput::None);
     };
 
-    // Convention radio buttons also reset active_input so the effect reformats.
-    let set_xyzw = move |_: leptos::web_sys::Event| {
+    let on_convention_change = move |ev: leptos::web_sys::Event| {
         active_input.set(ActiveInput::None);
-        is_xyzw.set(true);
-    };
-    let set_wxyz = move |_: leptos::web_sys::Event| {
-        active_input.set(ActiveInput::None);
-        is_xyzw.set(false);
+        let value = ev.target()
+            .unwrap()
+            .unchecked_into::<leptos::web_sys::HtmlSelectElement>()
+            .value();
+        is_xyzw.set(value == "xyzw");
     };
 
     let quat_config = CustomSliderConfig::quaternion_component();
@@ -153,18 +152,13 @@ fn QuaternionBox(
             <h2>"Quaternion"</h2>
             <div>
                 "Convention: "
-                <label>
-                    <input type="radio" name="quat-convention"
-                        prop:checked=move || is_xyzw.get()
-                        on:change=set_xyzw
-                    /> "xyzw"
-                </label>
-                <label>
-                    <input type="radio" name="quat-convention"
-                        prop:checked=move || !is_xyzw.get()
-                        on:change=set_wxyz
-                    /> "wxyz"
-                </label>
+                <select
+                    prop:value=move || if is_xyzw.get() { "xyzw" } else { "wxyz" }
+                    on:change=on_convention_change
+                >
+                    <option value="wxyz">"wxyz"</option>
+                    <option value="xyzw">"xyzw"</option>
+                </select>
             </div>
             <input
                 type="text"
