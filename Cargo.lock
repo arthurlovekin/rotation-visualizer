@@ -1990,6 +1990,7 @@ dependencies = [
  "three-d-asset",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "web-sys",
  "winit",
 ]
 

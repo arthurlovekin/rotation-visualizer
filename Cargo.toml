@@ -12,6 +12,7 @@ console_error_panic_hook = "0.1"
 leptos = { version = "0.8.15", features = ["csr"] }
 three-d = "0.18.2"
 three-d-asset = { version = "0.9", features = ["obj"] }
+web-sys = { version = "0.3", features = ["DomRect", "Element"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 log = "0.4"

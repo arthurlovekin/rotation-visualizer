@@ -13,7 +13,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use leptos::prelude::*;
-use leptos::web_sys::PointerEvent;
+use leptos::web_sys::{Element, PointerEvent};
 use leptos::wasm_bindgen::JsCast;
 
 static SLIDER_STYLES_INJECTED: AtomicBool = AtomicBool::new(false);
@@ -277,7 +277,10 @@ pub fn CustomSlider(
                                 Some(el) => el.unchecked_into(),
                                 None => return,
                             };
-                            let rect = track_el.get_bounding_client_rect();
+                            let rect = track_el
+                                .dyn_ref::<Element>()
+                                .expect("track element")
+                                .get_bounding_client_rect();
                             let track_left = rect.left();
                             let track_width = rect.width();
                             let update_value = |client_x: f64| {

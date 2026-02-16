@@ -351,6 +351,7 @@ async fn load_assets_wasm(
 }
 
 /// Returns true if the window event should trigger a redraw (user interaction with 3D view).
+#[cfg(target_arch = "wasm32")]
 fn window_event_needs_redraw(event: &winit::event::WindowEvent) -> bool {
     use winit::event::WindowEvent;
     matches!(
