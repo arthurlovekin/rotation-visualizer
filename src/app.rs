@@ -85,13 +85,6 @@ fn input_event_value(ev: &leptos::web_sys::Event) -> String {
         .value()
 }
 
-fn textarea_event_value(ev: &leptos::web_sys::Event) -> String {
-    ev.target()
-        .unwrap()
-        .unchecked_into::<leptos::web_sys::HtmlTextAreaElement>()
-        .value()
-}
-
 // ---------------------------------------------------------------------------
 // QuaternionBox
 // ---------------------------------------------------------------------------
@@ -269,7 +262,7 @@ fn RotationMatrixBox(
     });
 
     let on_input = move |ev: leptos::web_sys::Event| {
-        let value = textarea_event_value(&ev);
+        let value = input_event_value(&ev);
         text.set(value.clone());
         active_input.set(ActiveInput::RotationMatrix);
 
