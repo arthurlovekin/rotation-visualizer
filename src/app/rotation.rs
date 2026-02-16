@@ -147,7 +147,18 @@ impl From<Quaternion> for AxisAngle {
         if s < 1e-6 {
             return Self::new(0.0, 0.0, 0.0, 0.0);
         }
-        Self::new(quat.x / s, quat.y / s, quat.z / s, angle)
+        let mut ax = quat.x / s;
+        let mut ay = quat.y / s;
+        let mut az = quat.z / s;
+        let mut a = angle;
+        // Normalize: (axis, angle) ≡ (-axis, 2π - angle). Prefer angle in [0, π].
+        if a > std::f32::consts::PI {
+            a = 2.0 * std::f32::consts::PI - a;
+            ax = -ax;
+            ay = -ay;
+            az = -az;
+        }
+        Self::new(ax, ay, az, a)
     }
 }
 
