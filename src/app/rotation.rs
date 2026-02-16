@@ -83,12 +83,29 @@ impl From<RotationVector> for Quaternion {
 
 impl From<RotationMatrix> for Quaternion {
     fn from(matrix: RotationMatrix) -> Self {
-        let mut quat = Quaternion::default();
-        quat.w = (1.0 + matrix[0][0] + matrix[1][1] + matrix[2][2]) / 2.0;
-        quat.x = (matrix[2][1] - matrix[1][2]) / (4.0 * quat.w);
-        quat.y = (matrix[0][2] - matrix[2][0]) / (4.0 * quat.w);
-        quat.z = (matrix[1][0] - matrix[0][1]) / (4.0 * quat.w);
-        quat
+        let (m00, m01, m02) = (matrix[0][0], matrix[0][1], matrix[0][2]);
+        let (m10, m11, m12) = (matrix[1][0], matrix[1][1], matrix[1][2]);
+        let (m20, m21, m22) = (matrix[2][0], matrix[2][1], matrix[2][2]);
+        let trace = 1.0 + m00 + m11 + m22;
+        let (w, x, y, z) = if trace > 0.0 {
+            let s = 2.0 * trace.sqrt();
+            (
+                s / 4.0,
+                (m21 - m12) / s,
+                (m02 - m20) / s,
+                (m10 - m01) / s,
+            )
+        } else if m00 > m11 && m00 > m22 {
+            let s = 2.0 * (1.0 + m00 - m11 - m22).sqrt();
+            ((m21 - m12) / s, s / 4.0, (m01 + m10) / s, (m02 + m20) / s)
+        } else if m11 > m22 {
+            let s = 2.0 * (1.0 + m11 - m00 - m22).sqrt();
+            ((m02 - m20) / s, (m01 + m10) / s, s / 4.0, (m12 + m21) / s)
+        } else {
+            let s = 2.0 * (1.0 + m22 - m00 - m11).sqrt();
+            ((m10 - m01) / s, (m02 + m20) / s, (m12 + m21) / s, s / 4.0)
+        };
+        Self::new(w, x, y, z)
     }
 }
 
