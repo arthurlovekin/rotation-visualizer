@@ -5,6 +5,7 @@ use leptos::mount::mount_to;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 
+mod axis_angle;
 mod format;
 mod quaternion;
 mod rotation;
@@ -13,6 +14,7 @@ mod rotation_vector;
 mod slider_group;
 mod slider_widget;
 
+use axis_angle::AxisAngleBox;
 use format::{MatrixFormat, VectorFormat};
 use quaternion::QuaternionBox;
 use rotation_matrix::RotationMatrixBox;
@@ -64,6 +66,21 @@ impl CustomSliderConfig {
             ],
         }
     }
+
+    /// Angle slider [0, 360] degrees with 0°, 90°, 180°, 270°, 360° markers.
+    pub fn angle_degrees() -> Self {
+        Self {
+            min: 0.0,
+            max: 360.0,
+            markers: vec![
+                SliderMarker { value: 0.0, label: "0°".to_string() },
+                SliderMarker { value: 90.0, label: "90°".to_string() },
+                SliderMarker { value: 180.0, label: "180°".to_string() },
+                SliderMarker { value: 270.0, label: "270°".to_string() },
+                SliderMarker { value: 360.0, label: "360°".to_string() },
+            ],
+        }
+    }
 }
 
 /// Which text box the user is currently editing.
@@ -75,6 +92,7 @@ pub(crate) enum ActiveInput {
     Quaternion,
     RotationVector,
     RotationMatrix,
+    AxisAngle,
 }
 
 /// Callback to request a 3D canvas redraw (used for reactive rendering).
@@ -116,6 +134,7 @@ fn App(
         <QuaternionBox rotation=rotation format=format active_input=active_input />
         <RotationVectorBox rotation=rotation format=format active_input=active_input />
         <RotationMatrixBox rotation=rotation format=matrix_format active_input=active_input />
+        <AxisAngleBox rotation=rotation format=format active_input=active_input />
     }
 }
 
