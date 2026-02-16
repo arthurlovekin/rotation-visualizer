@@ -322,37 +322,64 @@ def _generate_rust_module(cases: list[dict]) -> str:
 mod scipy_tests {
     use super::*;
 
-    fn assert_quaternion_near(a: &Quaternion, b: &Quaternion, tol: f32) {
-        let q_ok = (a.w - b.w).abs() <= tol && (a.x - b.x).abs() <= tol
-            && (a.y - b.y).abs() <= tol && (a.z - b.z).abs() <= tol;
-        let dual_ok = (a.w + b.w).abs() <= tol && (a.x + b.x).abs() <= tol
-            && (a.y + b.y).abs() <= tol && (a.z + b.z).abs() <= tol;
-        assert!(q_ok || dual_ok, "quat {:?} vs {:?}", a, b);
+    fn assert_quaternion_near(rust_actual: &Quaternion, scipy_expected: &Quaternion, tol: f32) {
+        let q_ok = (rust_actual.w - scipy_expected.w).abs() <= tol
+            && (rust_actual.x - scipy_expected.x).abs() <= tol
+            && (rust_actual.y - scipy_expected.y).abs() <= tol
+            && (rust_actual.z - scipy_expected.z).abs() <= tol;
+        let dual_ok = (rust_actual.w + scipy_expected.w).abs() <= tol
+            && (rust_actual.x + scipy_expected.x).abs() <= tol
+            && (rust_actual.y + scipy_expected.y).abs() <= tol
+            && (rust_actual.z + scipy_expected.z).abs() <= tol;
+        assert!(
+            q_ok || dual_ok,
+            "Quaternion: Rust got {:?}, Scipy expected {:?}",
+            rust_actual,
+            scipy_expected
+        );
     }
 
-    fn assert_axis_angle_near(a: &AxisAngle, b: &AxisAngle, tol: f32) {
-        let angle_ok = (a.angle - b.angle).abs() <= tol;
-        let axis_ok = (a.x - b.x).abs() <= tol && (a.y - b.y).abs() <= tol && (a.z - b.z).abs() <= tol;
-        let zero_ok = a.angle <= tol && b.angle <= tol;
-        assert!(angle_ok && (axis_ok || zero_ok), "axis_angle {:?} vs {:?}", a, b);
+    fn assert_axis_angle_near(rust_actual: &AxisAngle, scipy_expected: &AxisAngle, tol: f32) {
+        let angle_ok = (rust_actual.angle - scipy_expected.angle).abs() <= tol;
+        let axis_ok = (rust_actual.x - scipy_expected.x).abs() <= tol
+            && (rust_actual.y - scipy_expected.y).abs() <= tol
+            && (rust_actual.z - scipy_expected.z).abs() <= tol;
+        let equiv_ok = (rust_actual.angle - (2.0 * std::f32::consts::PI - scipy_expected.angle)).abs() <= tol
+            && (rust_actual.x + scipy_expected.x).abs() <= tol
+            && (rust_actual.y + scipy_expected.y).abs() <= tol
+            && (rust_actual.z + scipy_expected.z).abs() <= tol;
+        let zero_ok = rust_actual.angle <= tol && scipy_expected.angle <= tol;
+        assert!(
+            (angle_ok && (axis_ok || zero_ok)) || (equiv_ok && !zero_ok),
+            "AxisAngle: Rust got {:?}, Scipy expected {:?}",
+            rust_actual,
+            scipy_expected
+        );
     }
 
-    fn assert_rotation_vector_near(a: &RotationVector, b: &RotationVector, tol: f32) {
-        let norm_a = (a.x * a.x + a.y * a.y + a.z * a.z).sqrt();
-        let norm_b = (b.x * b.x + b.y * b.y + b.z * b.z).sqrt();
+    fn assert_rotation_vector_near(rust_actual: &RotationVector, scipy_expected: &RotationVector, tol: f32) {
+        let norm_a = (rust_actual.x * rust_actual.x + rust_actual.y * rust_actual.y + rust_actual.z * rust_actual.z).sqrt();
+        let norm_b = (scipy_expected.x * scipy_expected.x + scipy_expected.y * scipy_expected.y + scipy_expected.z * scipy_expected.z).sqrt();
         let zero_ok = norm_a <= tol && norm_b <= tol;
-        let vec_ok = (a.x - b.x).abs() <= tol && (a.y - b.y).abs() <= tol && (a.z - b.z).abs() <= tol;
-        assert!(zero_ok || vec_ok, "rotation_vector {:?} vs {:?}", a, b);
+        let vec_ok = (rust_actual.x - scipy_expected.x).abs() <= tol
+            && (rust_actual.y - scipy_expected.y).abs() <= tol
+            && (rust_actual.z - scipy_expected.z).abs() <= tol;
+        assert!(
+            zero_ok || vec_ok,
+            "RotationVector: Rust got {:?}, Scipy expected {:?}",
+            rust_actual,
+            scipy_expected
+        );
     }
 
-    fn assert_rotation_matrix_near(a: &RotationMatrix, b: &RotationMatrix, tol: f32) {
+    fn assert_rotation_matrix_near(rust_actual: &RotationMatrix, scipy_expected: &RotationMatrix, tol: f32) {
         for i in 0..3 {
             for j in 0..3 {
                 assert!(
-                    (a[i][j] - b[i][j]).abs() <= tol,
-                    "matrix[{i}][{j}] {} vs {}",
-                    a[i][j],
-                    b[i][j]
+                    (rust_actual[i][j] - scipy_expected[i][j]).abs() <= tol,
+                    "RotationMatrix[{i}][{j}]: Rust got {}, Scipy expected {}",
+                    rust_actual[i][j],
+                    scipy_expected[i][j]
                 );
             }
         }
