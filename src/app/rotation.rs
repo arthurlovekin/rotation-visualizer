@@ -402,3 +402,7 @@ impl Mul for Rotation {
         }
     }
 }
+
+
+#[cfg(test)]
+include!("rotation_tests_generated.rs");
