@@ -230,7 +230,7 @@ fn RotationVectorBox(
 
     view! {
         <div>
-            <h2>"Axis Angle (3d)"</h2>
+            <h2>"Rotation Vector (3d)"</h2>
             <input
                 type="text"
                 class="vector-input vector-input-3"

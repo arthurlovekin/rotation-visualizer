@@ -1,8 +1,8 @@
-//! Quaternion slider group with LRU-based normalization.
+//! Quaternion slider group with Least-Recently-Used normalization.
 //!
 //! Uses the generic VectorSliderGroup with quaternion-specific:
 //! - 4 components (x, y, z, w) with dual values (-q)
-//! - LRU touch order for normalization
+//! - Least-Recently-Used touch order for normalization
 //! - xyzw vs wxyz layout order
 
 use std::cell::RefCell;
