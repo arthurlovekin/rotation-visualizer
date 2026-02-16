@@ -8,14 +8,16 @@ use leptos::wasm_bindgen::JsCast;
 mod format;
 mod quaternion;
 mod rotation;
+mod rotation_matrix;
 mod rotation_vector;
 mod slider_group;
 mod slider_widget;
 
-use format::{parse_matrix_and_format, parse_vector_and_format, MatrixFormat, VectorFormat};
-use quaternion::QuaternionSliderGroup;
-use rotation_vector::RotationVectorSliderGroup;
-use rotation::{AxisAngle, Quaternion, Rotation, RotationMatrix};
+use format::{MatrixFormat, VectorFormat};
+use quaternion::QuaternionBox;
+use rotation_matrix::RotationMatrixBox;
+use rotation_vector::RotationVectorBox;
+use rotation::Rotation;
 use slider_widget::{CustomSliderConfig, SliderMarker};
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
@@ -68,231 +70,11 @@ impl CustomSliderConfig {
 /// While editing, that box's text is driven by the user's keystrokes;
 /// all *other* boxes reactively reformat from the shared Rotation.
 #[derive(Clone, Copy, PartialEq)]
-enum ActiveInput {
+pub(crate) enum ActiveInput {
     None,
     Quaternion,
     RotationVector,
     RotationMatrix,
-}
-
-// ---------------------------------------------------------------------------
-// Helpers: pull the string value out of input/textarea events
-// ---------------------------------------------------------------------------
-fn input_event_value(ev: &leptos::web_sys::Event) -> String {
-    ev.target()
-        .unwrap()
-        .unchecked_into::<leptos::web_sys::HtmlInputElement>()
-        .value()
-}
-
-// ---------------------------------------------------------------------------
-// QuaternionBox
-// ---------------------------------------------------------------------------
-#[component]
-fn QuaternionBox(
-    rotation: RwSignal<Rotation>,
-    format: RwSignal<VectorFormat>,
-    active_input: RwSignal<ActiveInput>,
-) -> impl IntoView {
-    let is_xyzw = RwSignal::new(false);
-    let text = RwSignal::new(format.get_untracked().format_vector(&[0.0, 0.0, 0.0, 1.0]));
-
-    // Reactive effect: reformat whenever the rotation, format, or convention
-    // changes — but only if this box is NOT the one the user is typing in.
-    Effect::new(move || {
-        let rot = rotation.get();
-        let fmt = format.get();
-        let xyzw = is_xyzw.get();
-        if active_input.get() != ActiveInput::Quaternion {
-            let q = rot.as_quaternion();
-            let values: Vec<f32> = if xyzw {
-                vec![q.x as f32, q.y as f32, q.z as f32, q.w as f32]
-            } else {
-                vec![q.w as f32, q.x as f32, q.y as f32, q.z as f32]
-            };
-            text.set(fmt.format_vector(&values));
-        }
-    });
-
-    // Parse user input, update shared format + rotation
-    let on_input = move |ev: leptos::web_sys::Event| {
-        let value = input_event_value(&ev);
-        text.set(value.clone());
-        active_input.set(ActiveInput::Quaternion);
-
-        if let Ok((nums, detected_fmt)) = parse_vector_and_format::<4>(&value) {
-            format.set(detected_fmt);
-            let (w, x, y, z) = if is_xyzw.get_untracked() {
-                (nums[3] as f32, nums[0] as f32, nums[1] as f32, nums[2] as f32)
-            } else {
-                (nums[0] as f32, nums[1] as f32, nums[2] as f32, nums[3] as f32)
-            };
-            if let Ok(q) = Quaternion::try_new(w, x, y, z) {
-                rotation.set(Rotation::from(q));
-            }
-        }
-    };
-
-    let on_blur = move |_: leptos::web_sys::FocusEvent| {
-        active_input.set(ActiveInput::None);
-    };
-
-    let on_convention_change = move |ev: leptos::web_sys::Event| {
-        active_input.set(ActiveInput::None);
-        let value = ev.target()
-            .unwrap()
-            .unchecked_into::<leptos::web_sys::HtmlSelectElement>()
-            .value();
-        is_xyzw.set(value == "xyzw");
-    };
-
-    let quat_config = CustomSliderConfig::quaternion_component();
-
-    view! {
-        <div class="control-section">
-            <h2>"Quaternion"</h2>
-            <div class="convention-row">
-                "Convention: "
-                <select
-                    prop:value=move || if is_xyzw.get() { "xyzw" } else { "wxyz" }
-                    on:change=on_convention_change
-                >
-                    <option value="wxyz">"wxyz"</option>
-                    <option value="xyzw">"xyzw"</option>
-                </select>
-            </div>
-            <input
-                type="text"
-                class="vector-input"
-                prop:value=move || text.get()
-                on:input=on_input
-                on:blur=on_blur
-            />
-            <QuaternionSliderGroup rotation=rotation format_config=quat_config is_xyzw=is_xyzw />
-        </div>
-    }
-}
-
-// ---------------------------------------------------------------------------
-// RotationVectorBox
-// ---------------------------------------------------------------------------
-#[component]
-fn RotationVectorBox(
-    rotation: RwSignal<Rotation>,
-    format: RwSignal<VectorFormat>,
-    active_input: RwSignal<ActiveInput>,
-) -> impl IntoView {
-    let text = RwSignal::new(format.get_untracked().format_vector(&[0.0, 0.0, 0.0]));
-
-    // Reactive effect: reformat when rotation/format changes (if not editing).
-    Effect::new(move || {
-        let rot = rotation.get();
-        let fmt = format.get();
-        if active_input.get() != ActiveInput::RotationVector {
-            let rv = rot.as_rotation_vector();
-            let values = vec![
-                rv.x as f32,
-                rv.y as f32,
-                rv.z as f32,
-            ];
-            text.set(fmt.format_vector(&values));
-        }
-    });
-
-    let on_input = move |ev: leptos::web_sys::Event| {
-        let value = input_event_value(&ev);
-        text.set(value.clone());
-        active_input.set(ActiveInput::RotationVector);
-
-        if let Ok((nums, detected_fmt)) = parse_vector_and_format::<3>(&value) {
-            format.set(detected_fmt);
-            let (ax, ay, az) = (nums[0] as f32, nums[1] as f32, nums[2] as f32);
-            let angle = (ax * ax + ay * ay + az * az).sqrt();
-            if angle > 1e-10 {
-                let aa = AxisAngle::new(ax / angle, ay / angle, az / angle, angle);
-                rotation.set(Rotation::from(aa));
-            } else {
-                rotation.set(Rotation::default());
-            }
-        }
-    };
-
-    let on_blur = move |_: leptos::web_sys::FocusEvent| {
-        active_input.set(ActiveInput::None);
-    };
-
-    let rv_config = CustomSliderConfig::rotation_vector_component();
-
-    view! {
-        <div class="control-section">
-            <h2>"Rotation Vector"</h2>
-            <input
-                type="text"
-                class="vector-input vector-input-3"
-                prop:value=move || text.get()
-                on:input=on_input
-                on:blur=on_blur
-            />
-            <RotationVectorSliderGroup rotation=rotation format_config=rv_config />
-        </div>
-    }
-}
-
-// ---------------------------------------------------------------------------
-// RotationMatrixBox
-// ---------------------------------------------------------------------------
-#[component]
-fn RotationMatrixBox(
-    rotation: RwSignal<Rotation>,
-    format: RwSignal<MatrixFormat>,
-    active_input: RwSignal<ActiveInput>,
-) -> impl IntoView {
-    let identity = [[1.0f32, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
-    let text = RwSignal::new(format.get_untracked().format_matrix(&identity));
-
-    // Reactive effect: reformat when rotation/format changes (if not editing).
-    Effect::new(move || {
-        let rot = rotation.get();
-        let fmt = format.get();
-        if active_input.get() != ActiveInput::RotationMatrix {
-            let m = rot.as_rotation_matrix();
-            let values = [[m[0][0], m[0][1], m[0][2]], [m[1][0], m[1][1], m[1][2]], [m[2][0], m[2][1], m[2][2]]];
-            text.set(fmt.format_matrix(&values));
-        }
-    });
-
-    let on_input = move |ev: leptos::web_sys::Event| {
-        let value = input_event_value(&ev);
-        text.set(value.clone());
-        active_input.set(ActiveInput::RotationMatrix);
-
-        if let Ok((matrix, detected_fmt)) = parse_matrix_and_format::<3, 3>(&value) {
-            format.set(detected_fmt);
-            let rm = RotationMatrix([
-                [matrix[0][0], matrix[0][1], matrix[0][2]],
-                [matrix[1][0], matrix[1][1], matrix[1][2]],
-                [matrix[2][0], matrix[2][1], matrix[2][2]],
-            ]);
-            rotation.set(Rotation::from(rm));
-        }
-    };
-
-    let on_blur = move |_: leptos::web_sys::FocusEvent| {
-        active_input.set(ActiveInput::None);
-    };
-
-    view! {
-        <div class="control-section">
-            <h2>"Rotation Matrix"</h2>
-            <textarea
-                rows=3
-                class="vector-input matrix-input"
-                prop:value=move || text.get()
-                on:input=on_input
-                on:blur=on_blur
-            />
-        </div>
-    }
 }
 
 /// Callback to request a 3D canvas redraw (used for reactive rendering).

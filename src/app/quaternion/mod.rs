@@ -1,6 +1,7 @@
-//! Quaternion utilities: normalization and slider group.
+//! Quaternion utilities: normalization, slider group, and input box.
 
 mod normalize;
+mod quaternion_box;
 mod slider_group;
 
-pub use slider_group::QuaternionSliderGroup;
+pub use quaternion_box::QuaternionBox;
