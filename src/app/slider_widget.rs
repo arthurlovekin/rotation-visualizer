@@ -29,8 +29,9 @@ const SLIDER_CSS: &str = r#"
 .slider-label {
   flex: 0 0 auto;
   font-size: 0.9em;
-  color: #aaa;
+  color: var(--color-secondary);
   min-width: 1.5em;
+  font-family: var(--font-mono);
 }
 .slider-track-container {
   position: relative;
@@ -45,11 +46,11 @@ const SLIDER_CSS: &str = r#"
   top: 50%;
   transform: translateY(-50%);
   height: 0.28em;
-  background: #1e1e24;
+  background: var(--bg-panel);
   border: none;
   outline: none;
   border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgba(80,80,90,0.5),
+  box-shadow: inset 0 0 0 1px var(--border),
               inset 0 1px 2px rgba(0,0,0,0.3);
 }
 .slider-marker {
@@ -65,12 +66,13 @@ const SLIDER_CSS: &str = r#"
 .slider-marker-tick {
   width: 1px;
   height: 0.2em;
-  background: #333;
+  background: var(--color-tick);
   margin-bottom: 0.05em;
 }
 .slider-marker-label {
   font-size: 0.5em;
-  color: #555;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
 }
 .slider-handle {
   position: absolute;
@@ -78,7 +80,7 @@ const SLIDER_CSS: &str = r#"
   transform: translate(-50%, -50%);
   width: 1.8em;
   height: 0.9em;
-  background: rgba(100, 200, 255, 0.85);
+  background: var(--accent);
   border-radius: 1px;
   cursor: grab;
   display: flex;
@@ -92,8 +94,8 @@ const SLIDER_CSS: &str = r#"
 }
 .slider-handle-value {
   font-size: 0.55em;
-  font-family: monospace;
-  color: rgba(200, 235, 255, 0.95);
+  font-family: var(--font-mono);
+  color: var(--color-primary);
   width: 4ch;
   text-align: center;
 }
@@ -103,7 +105,7 @@ const SLIDER_CSS: &str = r#"
   transform: translate(-50%, -50%);
   width: 2px;
   height: 0.8em;
-  background: rgba(150, 180, 200, 0.6);
+  background: var(--accent-muted);
   border-radius: 1px;
   z-index: 1;
   pointer-events: none;

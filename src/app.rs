@@ -148,9 +148,9 @@ fn QuaternionBox(
     let quat_config = CustomSliderConfig::quaternion_component();
 
     view! {
-        <div>
+        <div class="control-section">
             <h2>"Quaternion"</h2>
-            <div>
+            <div class="convention-row">
                 "Convention: "
                 <select
                     prop:value=move || if is_xyzw.get() { "xyzw" } else { "wxyz" }
@@ -223,7 +223,7 @@ fn RotationVectorBox(
     let rv_config = CustomSliderConfig::rotation_vector_component();
 
     view! {
-        <div>
+        <div class="control-section">
             <h2>"Rotation Vector (3d)"</h2>
             <input
                 type="text"
@@ -552,7 +552,7 @@ fn run_three_d(
                             model_rotated.geometry.set_transformation(rotation_to_mat4(&rot));
                             frame_input
                                 .screen()
-                                .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+                                .clear(ClearState::color_and_depth(0.051, 0.051, 0.094, 1.0, 1.0))
                                 .render(
                                     &camera,
                                     (&*model_unrotated)
@@ -565,7 +565,7 @@ fn run_three_d(
                         None => {
                             frame_input
                                 .screen()
-                                .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+                                .clear(ClearState::color_and_depth(0.051, 0.051, 0.094, 1.0, 1.0))
                                 .render(&camera, &axes, &[&light0, &light1]);
                         }
                     }

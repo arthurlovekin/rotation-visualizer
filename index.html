@@ -4,7 +4,23 @@
     <meta charset="utf-8">
     <link data-trunk rel="rust" data-wasm-opt="z" />
     <link data-trunk rel="copy-dir" href="assets" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+        --bg-left: #1a1a2e;
+        --bg-left-end: #12122a;
+        --bg-right: #0d0d18;
+        --bg-panel: #1e1e24;
+        --color-primary: rgba(200, 235, 255, 0.95);
+        --color-secondary: #8a9ca8;
+        --color-muted: #5a6570;
+        --color-tick: #2a3038;
+        --accent: rgba(100, 200, 255, 0.85);
+        --accent-muted: rgba(120, 160, 200, 0.5);
+        --border: rgba(80, 100, 120, 0.4);
+        --border-strong: rgba(80, 120, 160, 0.6);
+      }
       html, body {
         margin: 0;
         padding: 0;
@@ -18,40 +34,93 @@
       }
       #leptos-app {
         flex: 1;
-        min-width: 0; /* prevent flex item from overflowing */
-        padding: 20px;
+        min-width: 0;
+        padding: 28px 24px;
         overflow-y: auto;
-        background: #1a1a2e;
-        color: #eee;
+        background: linear-gradient(to right, var(--bg-left) 0%, var(--bg-left-end) 100%);
+        color: var(--color-primary);
+        font-family: var(--font-mono);
+        border-right: 2px solid var(--border-strong);
+      }
+      #leptos-app h1 {
+        font-family: var(--font-mono);
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: var(--color-primary);
+        letter-spacing: 0.02em;
+        margin: 0 0 2em 0;
+        padding: 0;
+      }
+      #leptos-app h2 {
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--color-secondary);
+        letter-spacing: 0.02em;
+        margin: 0 0 0.6em 0;
+        padding: 0;
+      }
+      #leptos-app .control-section {
+        margin-bottom: 2.2em;
+      }
+      #leptos-app .control-section:last-child {
+        margin-bottom: 0;
+      }
+      #leptos-app select {
+        font-family: var(--font-mono);
+        font-size: 0.85em;
+        background: var(--bg-panel);
+        color: var(--color-primary);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        padding: 0.3em 0.5em;
+        margin-left: 0.4em;
+      }
+      #leptos-app select:focus {
+        outline: none;
+        border-color: var(--border-strong);
+      }
+      #leptos-app .convention-row {
+        margin-bottom: 0.6em;
       }
       .canvas-container {
-        flex: 0 0 50%; /* don't grow, don't shrink, stay at 50% */
+        flex: 0 0 50%;
         height: 100%;
         position: relative;
+        background: linear-gradient(135deg, var(--bg-right) 0%, #0a0a14 50%, #080812 100%);
+      }
+      .canvas-container::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to right, transparent 70%, rgba(15, 20, 35, 0.5) 100%);
+        pointer-events: none;
+        z-index: 1;
       }
       #three-canvas {
-        width: 100% !important;  /* override any inline styles */
+        width: 100% !important;
         height: 100% !important;
         display: block;
+        position: relative;
+        z-index: 0;
       }
       .red {
         color: red;
       }
       .vector-input {
-        font-family: monospace;
+        font-family: var(--font-mono);
         font-size: 0.9em;
-        /* Base: brackets + 4*(11-char numbers) + 3 delimiters = 49ch; +12ch for prefix like np.array( */
         width: 61ch;
         padding: 0.35em 0.5em;
-        background: #1e1e24;
-        color: rgba(200, 235, 255, 0.95);
-        border: 1px solid rgba(80, 80, 90, 0.5);
+        margin-bottom: 0.8em;
+        background: var(--bg-panel);
+        color: var(--color-primary);
+        border: 1px solid var(--border);
         border-radius: 2px;
         box-shadow: inset 0 0 0 1px rgba(80, 80, 90, 0.3),
                     inset 0 1px 2px rgba(0, 0, 0, 0.3);
       }
       .vector-input-3 {
-        /* Base: brackets + 3*(11-char numbers) + 2 delimiters = 37ch; +12ch for prefix */
         width: 49ch;
       }
     </style>
