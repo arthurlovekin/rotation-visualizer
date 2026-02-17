@@ -1,7 +1,7 @@
 //! Rotation vector slider group.
 //!
-//! Three sliders for x, y, z components, each [0, 2π - ε].
-//! Range stops short of 2π to avoid teleport when dragging past the end.
+//! Three sliders for x, y, z components, each [-π, π - ε].
+//! Range stops short of π to avoid teleport when dragging past the end.
 
 use leptos::prelude::*;
 
@@ -41,15 +41,10 @@ pub fn RotationVectorSliderGroup(
 
     let sync_from_rotation: std::rc::Rc<dyn Fn(Rotation) -> Vec<f64>> = std::rc::Rc::new(move |rot| {
         let rv = rot.as_rotation_vector();
-        let (x, y, z) = (rv.x as f64, rv.y as f64, rv.z as f64);
-        // Use (-x,-y,-z) when any component is negative (equivalent rotation)
-        let (x, y, z) = if x < 0.0 || y < 0.0 || z < 0.0 {
-            (-x, -y, -z)
-        } else {
-            (x, y, z)
-        };
-        let max = 2.0 * std::f64::consts::PI - 0.001;
-        vec![x.clamp(0.0, max), y.clamp(0.0, max), z.clamp(0.0, max)]
+        let (mut x, mut y, mut z) = (rv.x as f64, rv.y as f64, rv.z as f64);
+        let pi = std::f64::consts::PI;
+        let max = pi - 0.001;
+        vec![x.clamp(-pi, max), y.clamp(-pi, max), z.clamp(-pi, max)]
     });
 
     let on_value_change: std::rc::Rc<dyn Fn(usize, f64)> = std::rc::Rc::new({
