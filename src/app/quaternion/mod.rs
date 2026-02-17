@@ -1,6 +1,5 @@
-//! Quaternion utilities: normalization, slider group, and input box.
+//! Quaternion utilities: slider group and input box.
 
-mod normalize;
 mod quaternion_box;
 mod slider_group;
 

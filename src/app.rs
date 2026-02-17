@@ -7,6 +7,7 @@ use leptos::wasm_bindgen::JsCast;
 
 mod axis_angle;
 mod format;
+mod normalize;
 mod quaternion;
 mod rotation;
 mod rotation_matrix;

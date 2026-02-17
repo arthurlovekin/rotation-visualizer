@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use leptos::prelude::*;
 
-use super::normalize::{normalize_lru, touch_order, X, Y, Z, W};
+use crate::app::normalize::{normalize_lru_4, touch_order};
 use crate::app::rotation::{Quaternion, Rotation};
 use crate::app::slider_group::{SliderSlot, VectorSliderGroup};
 use crate::app::slider_widget::CustomSliderConfig;
@@ -32,7 +32,7 @@ pub fn QuaternionSliderGroup(
     let dual_z = Memo::new(move |_| -quat_z.get());
     let dual_w = Memo::new(move |_| -quat_w.get());
 
-    let order = Rc::new(RefCell::new([X, Y, Z, W]));
+    let order = Rc::new(RefCell::new([0, 1, 2, 3]));
 
     let slots = vec![
         SliderSlot {
@@ -41,7 +41,7 @@ pub fn QuaternionSliderGroup(
             dual_value: Some(dual_x),
             on_pointerdown: Some(Rc::new({
                 let order = order.clone();
-                move || touch_order(&mut order.borrow_mut(), X)
+                move || touch_order(order.borrow_mut().as_mut(), 0)
             })),
         },
         SliderSlot {
@@ -50,7 +50,7 @@ pub fn QuaternionSliderGroup(
             dual_value: Some(dual_y),
             on_pointerdown: Some(Rc::new({
                 let order = order.clone();
-                move || touch_order(&mut order.borrow_mut(), Y)
+                move || touch_order(order.borrow_mut().as_mut(), 1)
             })),
         },
         SliderSlot {
@@ -59,7 +59,7 @@ pub fn QuaternionSliderGroup(
             dual_value: Some(dual_z),
             on_pointerdown: Some(Rc::new({
                 let order = order.clone();
-                move || touch_order(&mut order.borrow_mut(), Z)
+                move || touch_order(order.borrow_mut().as_mut(), 2)
             })),
         },
         SliderSlot {
@@ -68,7 +68,7 @@ pub fn QuaternionSliderGroup(
             dual_value: Some(dual_w),
             on_pointerdown: Some(Rc::new({
                 let order = order.clone();
-                move || touch_order(&mut order.borrow_mut(), W)
+                move || touch_order(order.borrow_mut().as_mut(), 3)
             })),
         },
     ];
@@ -94,12 +94,12 @@ pub fn QuaternionSliderGroup(
                 qw.get_untracked(),
             ];
             let ord = *order.borrow();
-            let normalized = normalize_lru(values, idx, &ord);
+            let normalized = normalize_lru_4(values, idx, &ord);
             let new_rot = match Quaternion::try_new(
-                normalized[W] as f32,
-                normalized[X] as f32,
-                normalized[Y] as f32,
-                normalized[Z] as f32,
+                normalized[3] as f32,
+                normalized[0] as f32,
+                normalized[1] as f32,
+                normalized[2] as f32,
             ) {
                 Ok(q) => Rotation::from(q),
                 Err(_) => Rotation::default(),
