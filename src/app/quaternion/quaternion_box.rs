@@ -93,8 +93,8 @@ pub fn QuaternionBox(
                     prop:value=move || if is_xyzw.get() { "xyzw" } else { "wxyz" }
                     on:change=on_convention_change
                 >
-                    <option value="wxyz">"wxyz"</option>
-                    <option value="xyzw">"xyzw"</option>
+                    <option value="wxyz">"wxyz (scalar-first)"</option>
+                    <option value="xyzw">"xyzw (scalar-last)"</option>
                 </select>
             </div>
             <QuaternionSliderGroup rotation=rotation format_config=quat_config is_xyzw=is_xyzw />
