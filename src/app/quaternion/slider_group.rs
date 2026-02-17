@@ -32,7 +32,8 @@ pub fn QuaternionSliderGroup(
     let dual_z = Memo::new(move |_| -quat_z.get());
     let dual_w = Memo::new(move |_| -quat_w.get());
 
-    let order = Rc::new(RefCell::new([0, 1, 2, 3]));
+    // Initial LRU order: [oldest, ..., newest] = z, y, x, w (wxyz from MRU to LRU)
+    let order = Rc::new(RefCell::new([2, 1, 0, 3]));
 
     let slots = vec![
         SliderSlot {
