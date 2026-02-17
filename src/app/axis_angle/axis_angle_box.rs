@@ -79,6 +79,13 @@ pub fn AxisAngleBox(
     view! {
         <div class="control-section">
             <h2>"Axis-Angle"</h2>
+            <input
+            type="text"
+            class="vector-input vector-input-4"
+            prop:value=move || text.get()
+            on:input=on_input
+            on:blur=on_blur
+            />
             <div class="convention-row">
                 "Angle unit: "
                 <select
@@ -89,13 +96,6 @@ pub fn AxisAngleBox(
                     <option value="degrees">"degrees"</option>
                 </select>
             </div>
-            <input
-                type="text"
-                class="vector-input vector-input-4"
-                prop:value=move || text.get()
-                on:input=on_input
-                on:blur=on_blur
-            />
             <AxisAngleSliderGroup rotation=rotation use_degrees=use_degrees />
         </div>
     }

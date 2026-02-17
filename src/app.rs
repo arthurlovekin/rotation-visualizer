@@ -131,10 +131,10 @@ fn App(
 
     view! {
         <h1>"Rotation Visualizer"</h1>
-        <QuaternionBox rotation=rotation format=format active_input=active_input />
-        <RotationVectorBox rotation=rotation format=format active_input=active_input />
-        <RotationMatrixBox rotation=rotation format=matrix_format active_input=active_input />
         <AxisAngleBox rotation=rotation format=format active_input=active_input />
+        <RotationVectorBox rotation=rotation format=format active_input=active_input />
+        <QuaternionBox rotation=rotation format=format active_input=active_input />
+        <RotationMatrixBox rotation=rotation format=matrix_format active_input=active_input />
     }
 }
 

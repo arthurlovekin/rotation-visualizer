@@ -80,6 +80,13 @@ pub fn QuaternionBox(
     view! {
         <div class="control-section">
             <h2>"Quaternion"</h2>
+            <input
+            type="text"
+            class="vector-input"
+            prop:value=move || text.get()
+            on:input=on_input
+            on:blur=on_blur
+            />
             <div class="convention-row">
                 "Convention: "
                 <select
@@ -90,13 +97,6 @@ pub fn QuaternionBox(
                     <option value="xyzw">"xyzw"</option>
                 </select>
             </div>
-            <input
-                type="text"
-                class="vector-input"
-                prop:value=move || text.get()
-                on:input=on_input
-                on:blur=on_blur
-            />
             <QuaternionSliderGroup rotation=rotation format_config=quat_config is_xyzw=is_xyzw />
         </div>
     }
