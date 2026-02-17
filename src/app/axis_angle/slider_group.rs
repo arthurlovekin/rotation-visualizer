@@ -21,7 +21,8 @@ pub fn AxisAngleSliderGroup(
     /// true = degrees [0, 180], false = radians [0, π]
     use_degrees: RwSignal<bool>,
 ) -> impl IntoView {
-    let axis_x = RwSignal::new(0.0_f64);
+    // default to [0,1,0,0] because axis doesn't matter with 0 angle, but don't want to lock sliders
+    let axis_x = RwSignal::new(1.0_f64); 
     let axis_y = RwSignal::new(0.0_f64);
     let axis_z = RwSignal::new(0.0_f64);
     let angle = RwSignal::new(0.0_f64);
@@ -34,6 +35,9 @@ pub fn AxisAngleSliderGroup(
     let angle_config_deg = CustomSliderConfig::angle_degrees_0_180();
 
     // Sync rotation -> sliders when rotation changes.
+    // When angle is zero, the axis is arbitrary (identity rotation). Don't overwrite axis
+    // sliders so the user can freely move them to explore unit vectors without fighting
+    // the Effect that would reset them to [1,0,0].
     Effect::new(move || {
         let rot = rotation.get();
         let deg = use_degrees.get();
@@ -41,9 +45,11 @@ pub fn AxisAngleSliderGroup(
         let (ax, ay, az, a) = (aa.x as f64, aa.y as f64, aa.z as f64, aa.angle as f64);
         let angle_val = if deg { a.to_degrees() } else { a };
         batch(|| {
-            axis_x.set(ax);
-            axis_y.set(ay);
-            axis_z.set(az);
+            if a.abs() > AXIS_EPSILON {
+                axis_x.set(ax);
+                axis_y.set(ay);
+                axis_z.set(az);
+            }
             angle.set(angle_val);
         });
     });
