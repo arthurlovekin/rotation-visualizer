@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut};
 /// When sin(angle/2) < this, we treat the quaternion as near-identity (angle ≈ 2π)
 /// to avoid division by near-zero. Using 4× EPSILON (~4.8e-7) preserves more precision
 /// than 1e-6 while remaining numerically stable for f32.
-const NEAR_IDENTITY_S_THRESHOLD: f32 = 4.0 * f32::EPSILON;
+const NEAR_IDENTITY_S_THRESHOLD: f32 = 1.0 * f32::EPSILON;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Quaternion {
@@ -158,12 +158,14 @@ impl AxisAngle {
             az = -z;
         }
 
-        if new_angle == 0.0 {
-            return Ok(Self { x: 1.0, y: 0.0, z: 0.0, angle: 0.0 });
-        }
         let axis_norm_sq = ax * ax + ay * ay + az * az;
         if axis_norm_sq == 0.0 {
-            return Err("Axis norm cannot be zero unless angle is zero".to_string());
+            if new_angle == 0.0 {
+                // axis doesn't matter, so pick an arbitrary unit-vector so axis will be continuous
+                return Ok(Self { x: 1.0, y: 0.0, z: 0.0, angle: 0.0 });
+            } else {
+                return Err("Axis norm cannot be zero unless angle is zero".to_string());
+            }
         }
         let axis_norm = axis_norm_sq.sqrt();
         Ok(
@@ -179,14 +181,13 @@ impl AxisAngle {
 
 impl From<Quaternion> for AxisAngle {
     fn from(quat: Quaternion) -> Self {
+        // sin(angle/2) = (1.0 - quat.w * quat.w).sqrt()
+        let p = 1.0 - quat.w * quat.w;
+        if p - NEAR_IDENTITY_S_THRESHOLD <= 0.0 {
+            return Self::new(0.0, 0.0, 0.0, 0.0);
+        }
+        let s = p.sqrt();
         let angle = 2.0 * quat.w.acos();
-        if angle == 0.0 {
-            return Self::new(0.0, 0.0, 0.0, 0.0);
-        }
-        let s = (1.0 - quat.w * quat.w).sqrt(); // = sin(angle/2)
-        if s < NEAR_IDENTITY_S_THRESHOLD {
-            return Self::new(0.0, 0.0, 0.0, 0.0);
-        }
         Self::new(quat.x / s, quat.y / s, quat.z / s, angle)
     }
 }
