@@ -123,7 +123,7 @@ pub struct AxisAngle {
 }
 
 impl AxisAngle {
-    /// Create a new axis-angle representation, where the axis is a unit vector and the angle is in radians from [0, 2π).
+    /// Create a new axis-angle representation, where the axis is a unit vector and the angle is in radians from [0, π].
     pub fn new(x: f32, y: f32, z: f32, angle: f32) -> Self {
         Self::try_new(x, y, z, angle).unwrap_or_else(|e| panic!("{}", e))
     }
@@ -139,20 +139,39 @@ impl AxisAngle {
     }
 
     pub fn try_new(x: f32, y: f32, z: f32, angle: f32) -> Result<Self, String> {
-        if angle == 0.0 {
+        // First bring angle into range [0, 2*pi) with modulo.
+        // Rust's % is remainder (truncating division): result has same sign as dividend.
+        let mut new_angle = angle % (2.0 * std::f32::consts::PI);
+        if new_angle < 0.0 {
+            new_angle += 2.0 * std::f32::consts::PI;
+        }
+
+        // Axis-angle is a double-cover: (axis, angle) with angle in [pi, 2*pi) is equivalent to
+        // (-axis, 2*pi - angle) with angle in (0, pi]. Flip axis when angle >= pi to get [0, pi].
+        let mut ax = x;
+        let mut ay = y;
+        let mut az = z;
+        if new_angle >= std::f32::consts::PI {
+            new_angle = 2.0 * std::f32::consts::PI - new_angle;
+            ax = -x;
+            ay = -y;
+            az = -z;
+        }
+
+        if new_angle == 0.0 {
             return Ok(Self { x: 1.0, y: 0.0, z: 0.0, angle: 0.0 });
         }
-        let axis_norm_sq = x * x + y * y + z * z;
+        let axis_norm_sq = ax * ax + ay * ay + az * az;
         if axis_norm_sq == 0.0 {
             return Err("Axis norm cannot be zero unless angle is zero".to_string());
         }
         let axis_norm = axis_norm_sq.sqrt();
         Ok(
             Self { 
-                x: x / axis_norm, 
-                y: y / axis_norm, 
-                z: z / axis_norm, 
-                angle: angle % (2.0 * std::f32::consts::PI) 
+                x: ax / axis_norm, 
+                y: ay / axis_norm, 
+                z: az / axis_norm, 
+                angle: new_angle 
             }
         )
     }
@@ -168,18 +187,7 @@ impl From<Quaternion> for AxisAngle {
         if s < NEAR_IDENTITY_S_THRESHOLD {
             return Self::new(0.0, 0.0, 0.0, 0.0);
         }
-        let mut ax = quat.x / s;
-        let mut ay = quat.y / s;
-        let mut az = quat.z / s;
-        let mut a = angle;
-        // Normalize: (axis, angle) ≡ (-axis, 2π - angle). Prefer angle in [0, π].
-        if a > std::f32::consts::PI {
-            a = 2.0 * std::f32::consts::PI - a;
-            ax = -ax;
-            ay = -ay;
-            az = -az;
-        }
-        Self::new(ax, ay, az, a)
+        Self::new(quat.x / s, quat.y / s, quat.z / s, angle)
     }
 }
 
