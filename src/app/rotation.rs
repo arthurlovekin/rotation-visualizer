@@ -140,7 +140,7 @@ impl AxisAngle {
 
     pub fn try_new(x: f32, y: f32, z: f32, angle: f32) -> Result<Self, String> {
         if angle == 0.0 {
-            return Ok(Self { x: 0.0, y: 0.0, z: 0.0, angle: 0.0 });
+            return Ok(Self { x: 1.0, y: 0.0, z: 0.0, angle: 0.0 });
         }
         let axis_norm_sq = x * x + y * y + z * z;
         if axis_norm_sq == 0.0 {
