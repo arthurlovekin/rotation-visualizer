@@ -2,7 +2,7 @@
 //!
 //! Four sliders: unit vector x, y, z (each [-1, 1]) and angle θ.
 //! Uses Least-Recently-Used normalization for the axis components.
-//! Angle slider uses radians [0, 2π] or degrees [0, 360] based on use_degrees.
+//! Angle slider uses radians [0, π] or degrees [0, 180] based on use_degrees.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -18,7 +18,7 @@ const AXIS_EPSILON: f64 = 1e-10;
 #[component]
 pub fn AxisAngleSliderGroup(
     rotation: RwSignal<Rotation>,
-    /// true = degrees [0, 360], false = radians [0, 2π]
+    /// true = degrees [0, 180], false = radians [0, π]
     use_degrees: RwSignal<bool>,
 ) -> impl IntoView {
     let axis_x = RwSignal::new(0.0_f64);
@@ -30,8 +30,8 @@ pub fn AxisAngleSliderGroup(
     let order_for_update = order.clone();
 
     let axis_config = CustomSliderConfig::quaternion_component();
-    let angle_config_rad = CustomSliderConfig::angle_2pi();
-    let angle_config_deg = CustomSliderConfig::angle_degrees();
+    let angle_config_rad = CustomSliderConfig::angle_0_pi();
+    let angle_config_deg = CustomSliderConfig::angle_degrees_0_180();
 
     // Sync rotation -> sliders when rotation changes.
     Effect::new(move || {

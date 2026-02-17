@@ -39,6 +39,20 @@ impl CustomSliderConfig {
         }
     }
 
+    /// Angle slider [0, π] with 0, π/2, π markers (for axis-angle).
+    pub fn angle_0_pi() -> Self {
+        let pi = std::f64::consts::PI;
+        Self {
+            min: 0.0,
+            max: pi,
+            markers: vec![
+                SliderMarker { value: 0.0, label: "0".to_string() },
+                SliderMarker { value: pi / 2.0, label: "π/2".to_string() },
+                SliderMarker { value: pi, label: "π".to_string() },
+            ],
+        }
+    }
+
     /// Quaternion component slider [-1, 1].
     pub fn quaternion_component() -> Self {
         Self {
@@ -79,6 +93,19 @@ impl CustomSliderConfig {
                 SliderMarker { value: 180.0, label: "180°".to_string() },
                 SliderMarker { value: 270.0, label: "270°".to_string() },
                 SliderMarker { value: 360.0, label: "360°".to_string() },
+            ],
+        }
+    }
+
+    /// Angle slider [0, 180] degrees with 0°, 90°, 180° markers (for axis-angle).
+    pub fn angle_degrees_0_180() -> Self {
+        Self {
+            min: 0.0,
+            max: 180.0,
+            markers: vec![
+                SliderMarker { value: 0.0, label: "0°".to_string() },
+                SliderMarker { value: 90.0, label: "90°".to_string() },
+                SliderMarker { value: 180.0, label: "180°".to_string() },
             ],
         }
     }
