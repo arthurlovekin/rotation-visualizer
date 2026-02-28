@@ -18,7 +18,7 @@ use crate::app::slider_widget::CustomSliderConfig;
 #[component]
 pub fn QuaternionSliderGroup(
     rotation: RwSignal<Rotation>,
-    format_config: CustomSliderConfig,
+    slider_config: CustomSliderConfig,
     /// true = xyzw (x,y,z,w), false = wxyz (w,x,y,z)
     is_xyzw: RwSignal<bool>,
 ) -> impl IntoView {
@@ -121,7 +121,7 @@ pub fn QuaternionSliderGroup(
         <VectorSliderGroup
             rotation=rotation
             slots=slots
-            format_config=format_config
+            slider_config=slider_config
             sync_from_rotation=sync_from_rotation
             on_value_change=on_value_change
             order=order_memo

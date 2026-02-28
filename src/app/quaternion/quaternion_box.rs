@@ -2,20 +2,14 @@
 
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::{HtmlInputElement, HtmlSelectElement};
+use leptos::web_sys::HtmlSelectElement;
 
+use crate::app::dom::input_event_value;
 use crate::app::format::{parse_vector_and_format, VectorFormat};
 use crate::app::rotation::{Quaternion, Rotation};
 use crate::app::slider_widget::CustomSliderConfig;
 use super::slider_group::QuaternionSliderGroup;
 use crate::app::ActiveInput;
-
-fn input_event_value(ev: &leptos::web_sys::Event) -> String {
-    ev.target()
-        .unwrap()
-        .unchecked_into::<HtmlInputElement>()
-        .value()
-}
 
 #[component]
 pub fn QuaternionBox(
@@ -97,7 +91,7 @@ pub fn QuaternionBox(
                     <option value="xyzw">"xyzw (scalar-last)"</option>
                 </select>
             </div>
-            <QuaternionSliderGroup rotation=rotation format_config=quat_config is_xyzw=is_xyzw />
+            <QuaternionSliderGroup rotation=rotation slider_config=quat_config is_xyzw=is_xyzw />
         </div>
     }
 }

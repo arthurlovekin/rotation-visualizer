@@ -2,20 +2,14 @@
 
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::{HtmlInputElement, HtmlSelectElement};
+use leptos::web_sys::HtmlSelectElement;
 
+use crate::app::dom::input_event_value;
 use crate::app::format::{parse_vector_and_format, VectorFormat};
 use crate::app::rotation::{AxisAngle, Rotation};
 use crate::app::ActiveInput;
 
 use super::slider_group::AxisAngleSliderGroup;
-
-fn input_event_value(ev: &leptos::web_sys::Event) -> String {
-    ev.target()
-        .unwrap()
-        .unchecked_into::<HtmlInputElement>()
-        .value()
-}
 
 #[component]
 pub fn AxisAngleBox(

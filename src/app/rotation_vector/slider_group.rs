@@ -24,7 +24,7 @@ use crate::app::slider_widget::{CustomSlider, CustomSliderConfig};
 #[component]
 pub fn RotationVectorSliderGroup(
     rotation: RwSignal<Rotation>,
-    format_config: CustomSliderConfig,
+    slider_config: CustomSliderConfig,
 ) -> impl IntoView {
     // ─── Slider state (unsimplified, ∈ [-2π, 2π]) ─────────────────────────
     let rv_x = RwSignal::new(0.0_f64);
@@ -33,7 +33,7 @@ pub fn RotationVectorSliderGroup(
 
     // Skip Effect sync when the change came from our own slider (avoids overwriting
     // unsimplified values with normalized ones during drag).
-    let skip_next_sync = Rc::new(RefCell::new(false));
+    let skip_sync = Rc::new(RefCell::new(false));
 
     // ─── Derived: simplified form for tick marks ─────────────────────────
     let simplified = Memo::new(move |_| {
@@ -46,11 +46,11 @@ pub fn RotationVectorSliderGroup(
 
     // ─── Sync: rotation → sliders (when rotation changes externally) ───────
     Effect::new({
-        let skip_next_sync = skip_next_sync.clone();
+        let skip_sync = skip_sync.clone();
         move || {
             let _ = rotation.get();
-            if *skip_next_sync.borrow() {
-                *skip_next_sync.borrow_mut() = false;
+            if *skip_sync.borrow() {
+                *skip_sync.borrow_mut() = false;
                 return;
             }
             let (sx, sy, sz) = simplified.get();
@@ -65,9 +65,9 @@ pub fn RotationVectorSliderGroup(
 
     // ─── Write: sliders → rotation ────────────────────────────────────────
     let on_change = Rc::new({
-        let skip_next_sync = skip_next_sync.clone();
+        let skip_sync = skip_sync.clone();
         move |_value: f64| {
-            *skip_next_sync.borrow_mut() = true;
+            *skip_sync.borrow_mut() = true;
             let rv = RotationVector::new(
                 rv_x.get_untracked() as f32,
                 rv_y.get_untracked() as f32,
@@ -77,7 +77,7 @@ pub fn RotationVectorSliderGroup(
         }
     });
 
-    let config = format_config.clone();
+    let config = slider_config.clone();
 
     view! {
         <div class="vector-sliders" style="display: flex; flex-direction: column;">

@@ -1,21 +1,13 @@
 //! Rotation vector input box with slider group.
 
 use leptos::prelude::*;
-use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::HtmlInputElement;
 
+use crate::app::dom::input_event_value;
 use crate::app::format::{parse_vector_and_format, VectorFormat};
-use crate::app::rotation::{AxisAngle, Rotation};
+use crate::app::rotation::{Rotation, RotationVector};
 use crate::app::slider_widget::CustomSliderConfig;
 use super::slider_group::RotationVectorSliderGroup;
 use crate::app::ActiveInput;
-
-fn input_event_value(ev: &leptos::web_sys::Event) -> String {
-    ev.target()
-        .unwrap()
-        .unchecked_into::<HtmlInputElement>()
-        .value()
-}
 
 #[component]
 pub fn RotationVectorBox(
@@ -47,14 +39,8 @@ pub fn RotationVectorBox(
 
         if let Ok((nums, detected_fmt)) = parse_vector_and_format::<3>(&value) {
             format.set(detected_fmt);
-            let (ax, ay, az) = (nums[0] as f32, nums[1] as f32, nums[2] as f32);
-            let angle = (ax * ax + ay * ay + az * az).sqrt();
-            if angle > 1e-10 {
-                let aa = AxisAngle::new(ax / angle, ay / angle, az / angle, angle);
-                rotation.set(Rotation::from(aa));
-            } else {
-                rotation.set(Rotation::default());
-            }
+            let rv = RotationVector::new(nums[0] as f32, nums[1] as f32, nums[2] as f32);
+            rotation.set(Rotation::from(rv));
         }
     };
 
@@ -74,7 +60,7 @@ pub fn RotationVectorBox(
                 on:input=on_input
                 on:blur=on_blur
             />
-            <RotationVectorSliderGroup rotation=rotation format_config=rv_config />
+            <RotationVectorSliderGroup rotation=rotation slider_config=rv_config />
         </div>
     }
 }

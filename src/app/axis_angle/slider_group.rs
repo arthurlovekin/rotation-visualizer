@@ -41,7 +41,7 @@ pub fn AxisAngleSliderGroup(
     let angle = RwSignal::new(0.0_f64);
 
     let order = Rc::new(RefCell::new([0, 1, 2]));
-    let slider_did_update = Rc::new(RefCell::new(false));
+    let skip_sync = Rc::new(RefCell::new(false));
 
     let axis_config = CustomSliderConfig::quaternion_component();
     let angle_config_rad = CustomSliderConfig::angle_rad_neg_pi_2pi();
@@ -60,11 +60,11 @@ pub fn AxisAngleSliderGroup(
 
     // Sync rotation → sliders when rotation changes externally (not from our slider).
     Effect::new({
-        let slider_did_update = slider_did_update.clone();
+        let skip_sync = skip_sync.clone();
         move || {
             let _ = rotation.get();
-            if *slider_did_update.borrow() {
-                *slider_did_update.borrow_mut() = false;
+            if *skip_sync.borrow() {
+                *skip_sync.borrow_mut() = false;
                 return;
             }
             let (ax, ay, az, a) = simplified.get();
@@ -87,9 +87,9 @@ pub fn AxisAngleSliderGroup(
     // Slider → rotation: normalize axis (LRU when axis changed, else simple), update rotation, write back normalized axis.
     let update_from_slider = Rc::new({
         let order = order.clone();
-        let slider_did_update = slider_did_update.clone();
+        let skip_sync = skip_sync.clone();
         move |changed_idx: Option<usize>| {
-            *slider_did_update.borrow_mut() = true;
+            *skip_sync.borrow_mut() = true;
             let (x, y, z) = (axis_x.get_untracked(), axis_y.get_untracked(), axis_z.get_untracked());
             let a = angle.get_untracked();
 

@@ -1,19 +1,11 @@
 //! Rotation matrix input box (3x3 textarea).
 
 use leptos::prelude::*;
-use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::HtmlTextAreaElement;
 
+use crate::app::dom::textarea_event_value;
 use crate::app::format::{parse_matrix_and_format, MatrixFormat};
 use crate::app::rotation::{Rotation, RotationMatrix};
 use crate::app::ActiveInput;
-
-fn textarea_event_value(ev: &leptos::web_sys::Event) -> String {
-    ev.target()
-        .unwrap()
-        .unchecked_into::<HtmlTextAreaElement>()
-        .value()
-}
 
 #[component]
 pub fn RotationMatrixBox(

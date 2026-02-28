@@ -34,7 +34,7 @@ pub struct SliderSlot {
 ///
 /// - `rotation`: shared rotation signal
 /// - `slots`: per-component configuration (value, label, optional dual, optional pointerdown)
-/// - `format_config`: slider min/max/markers
+/// - `slider_config`: slider min/max/markers
 /// - `sync_from_rotation`: extracts component values from rotation (for Effect sync)
 /// - `on_value_change`: called when user drags; receives (component_index, new_value).
 ///   Use RAF-throttled; reads other values from slots and updates rotation.
@@ -43,7 +43,7 @@ pub struct SliderSlot {
 pub fn VectorSliderGroup(
     rotation: RwSignal<Rotation>,
     slots: Vec<SliderSlot>,
-    format_config: CustomSliderConfig,
+    slider_config: CustomSliderConfig,
     sync_from_rotation: Rc<dyn Fn(Rotation) -> Vec<f64>>,
     on_value_change: Rc<dyn Fn(usize, f64)>,
     order: Memo<Vec<usize>>,
@@ -108,7 +108,7 @@ pub fn VectorSliderGroup(
                     move |v: f64| h(i, v)
                 });
                 let label = slot.label;
-                let config = format_config.clone();
+                let config = slider_config.clone();
                 let value = slot.value;
                 let dual_value = slot.dual_value;
                 let on_pointerdown = slot.on_pointerdown;
