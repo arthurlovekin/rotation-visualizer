@@ -1,9 +1,12 @@
 //! Axis-angle slider group.
 //!
+//! **Model**: There is always a "simplified" axis-angle (angle ∈ [0, π], canonical form)
+//! derived from the rotation — it drives the tick marks. The sliders represent the
+//! "unsimplified" form (angle ∈ [-π, 2π]) for smooth dragging; both represent the
+//! same rotation.
+//!
 //! Four sliders: unit vector x, y, z (each [-1, 1]) and angle θ.
 //! Uses Least-Recently-Used normalization for the axis components.
-//! Angle slider uses radians [-π, 2π] or degrees [-180°, 360°] with a tick mark
-//! showing the simplified form [0, π] / [0°, 180°] for smooth dragging.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -22,7 +25,7 @@ pub fn AxisAngleSliderGroup(
     /// true = degrees [-180°, 360°], false = radians [-π, 2π]
     use_degrees: RwSignal<bool>,
 ) -> impl IntoView {
-    // default to [0,1,0,0] because axis doesn't matter with 0 angle, but don't want to lock sliders
+    // Unsimplified form: slider state. Angle in [-π, 2π], axis continuous.
     let axis_x = RwSignal::new(1.0_f64);
     let axis_y = RwSignal::new(0.0_f64);
     let axis_z = RwSignal::new(0.0_f64);
@@ -30,90 +33,64 @@ pub fn AxisAngleSliderGroup(
 
     let order = Rc::new(RefCell::new([0, 1, 2]));
     let order_for_update = order.clone();
-    let angle_source_is_slider = Rc::new(RefCell::new(false));
-    let angle_source_is_slider_for_effect = angle_source_is_slider.clone();
-    let axis_source_is_slider = Rc::new(RefCell::new(false));
-    let axis_source_is_slider_for_effect = axis_source_is_slider.clone();
+    let slider_did_update = Rc::new(RefCell::new(false));
 
     let axis_config = CustomSliderConfig::quaternion_component();
     let angle_config_rad = CustomSliderConfig::angle_rad_neg_pi_2pi();
     let angle_config_deg = CustomSliderConfig::angle_deg_neg180_360();
 
-    // Simplified angle from rotation [0, π] or [0°, 180°] — shown as tick mark.
-    let simplified_angle_rad = Memo::new(move |_| {
-        let rot = rotation.get();
-        let aa = rot.as_axis_angle();
-        aa.angle as f64
+    // Simplified form: always exists, drives tick marks. Derived from rotation.
+    let simplified = Memo::new(move |_| {
+        let aa = rotation.get().as_axis_angle();
+        (aa.x as f64, aa.y as f64, aa.z as f64, aa.angle as f64)
     });
-    let simplified_angle_deg = Memo::new(move |_| {
-        let rot = rotation.get();
-        let aa = rot.as_axis_angle();
-        (aa.angle as f64).to_degrees()
-    });
+    let simplified_axis_x = Memo::new(move |_| simplified.get().0);
+    let simplified_axis_y = Memo::new(move |_| simplified.get().1);
+    let simplified_axis_z = Memo::new(move |_| simplified.get().2);
+    let simplified_angle_rad = Memo::new(move |_| simplified.get().3);
+    let simplified_angle_deg = Memo::new(move |_| simplified.get().3.to_degrees());
 
-    // Simplified axis from rotation — shown as tick marks (axis flips when angle >= π).
-    let simplified_axis_x = Memo::new(move |_| {
-        let rot = rotation.get();
-        let aa = rot.as_axis_angle();
-        aa.x as f64
-    });
-    let simplified_axis_y = Memo::new(move |_| {
-        let rot = rotation.get();
-        let aa = rot.as_axis_angle();
-        aa.y as f64
-    });
-    let simplified_axis_z = Memo::new(move |_| {
-        let rot = rotation.get();
-        let aa = rot.as_axis_angle();
-        aa.z as f64
-    });
-
-    // Sync rotation -> sliders when rotation changes.
-    // When angle is zero, the axis is arbitrary (identity rotation). Don't overwrite axis
-    // sliders so the user can freely move them to explore unit vectors without fighting
-    // the Effect that would reset them to [1,0,0].
-    // When the change came from our angle slider, don't overwrite angle or axis (axis flips with angle).
-    // When the change came from our axis slider, don't overwrite axis.
+    // Sync rotation → sliders when rotation changes externally. Skip when we just updated from slider.
+    let slider_did_update_for_effect = slider_did_update.clone();
     Effect::new(move || {
-        let rot = rotation.get();
+        let _ = rotation.get();
+        if *slider_did_update_for_effect.borrow() {
+            *slider_did_update_for_effect.borrow_mut() = false;
+            return;
+        }
+        let (ax, ay, az, a) = simplified.get();
         let deg = use_degrees.get();
-        let aa = rot.as_axis_angle();
-        let (ax, ay, az, a) = (aa.x as f64, aa.y as f64, aa.z as f64, aa.angle as f64);
         let angle_val = if deg { a.to_degrees() } else { a };
-        let angle_from_user = *angle_source_is_slider_for_effect.borrow();
-        let axis_from_user = *axis_source_is_slider_for_effect.borrow();
         batch(|| {
-            if !angle_from_user && a.abs() > AXIS_EPSILON && !axis_from_user {
+            if a.abs() > AXIS_EPSILON {
                 axis_x.set(ax);
                 axis_y.set(ay);
                 axis_z.set(az);
             }
-            if angle_from_user {
-                *angle_source_is_slider_for_effect.borrow_mut() = false;
-            }
-            if axis_from_user {
-                *axis_source_is_slider_for_effect.borrow_mut() = false;
-            }
-            if !angle_from_user {
-                angle.set(angle_val);
-            }
+            angle.set(angle_val);
         });
     });
 
-    let update_rotation_from_axis = Rc::new({
+    // Update rotation from unsimplified slider values. changed_idx = which axis changed (for LRU).
+    let update_rotation = Rc::new({
         let order_for_update = order_for_update;
-        move |ax: f64, ay: f64, az: f64, a: f64, changed_idx: usize| {
+        move |ax: f64, ay: f64, az: f64, a: f64, changed_idx: Option<usize>| {
             let norm_sq = ax * ax + ay * ay + az * az;
             if norm_sq < AXIS_EPSILON {
                 rotation.set(Rotation::default());
                 return;
             }
-            let values = [ax, ay, az];
-            let ord = *order_for_update.borrow();
-            let normalized = normalize_lru_3(values, changed_idx, &ord);
-            let nx = normalized[0] as f32;
-            let ny = normalized[1] as f32;
-            let nz = normalized[2] as f32;
+            let (nx, ny, nz) = match changed_idx {
+                Some(i) => {
+                    let ord = *order_for_update.borrow();
+                    let n = normalize_lru_3([ax, ay, az], i, &ord);
+                    (n[0] as f32, n[1] as f32, n[2] as f32)
+                }
+                None => {
+                    let norm = norm_sq.sqrt();
+                    ((ax / norm) as f32, (ay / norm) as f32, (az / norm) as f32)
+                }
+            };
             let angle_rad = if use_degrees.get_untracked() {
                 a.to_radians() as f32
             } else {
@@ -125,67 +102,32 @@ pub fn AxisAngleSliderGroup(
         }
     });
 
-    let update_rotation_from_angle = move |ax: f64, ay: f64, az: f64, a: f64| {
-        let norm_sq = ax * ax + ay * ay + az * az;
-        if norm_sq < AXIS_EPSILON {
-            rotation.set(Rotation::default());
-            return;
+    let update_from_slider = Rc::new({
+        let slider_did_update = slider_did_update.clone();
+        let update_rotation = update_rotation.clone();
+        move |changed_idx: Option<usize>| {
+            *slider_did_update.borrow_mut() = true;
+            let (x, y, z) = (axis_x.get_untracked(), axis_y.get_untracked(), axis_z.get_untracked());
+            let a = angle.get_untracked();
+            update_rotation(x, y, z, a, changed_idx);
         }
-        let norm = norm_sq.sqrt();
-        let nx = (ax / norm) as f32;
-        let ny = (ay / norm) as f32;
-        let nz = (az / norm) as f32;
-        let angle_rad = if use_degrees.get_untracked() {
-            a.to_radians() as f32
-        } else {
-            a as f32
-        };
-        if let Ok(aa) = AxisAngle::try_new(nx, ny, nz, angle_rad) {
-            rotation.set(Rotation::from(aa));
-        }
-    };
+    });
 
     let on_x_change = Rc::new({
-        let ax = axis_x;
-        let ay = axis_y;
-        let az = axis_z;
-        let ang = angle;
-        let axis_source_is_slider = axis_source_is_slider.clone();
-        let update = update_rotation_from_axis.clone();
-        move |_v: f64| {
-            *axis_source_is_slider.borrow_mut() = true;
-            let (x, y, z) = (ax.get_untracked(), ay.get_untracked(), az.get_untracked());
-            let a = ang.get_untracked();
-            update(x, y, z, a, 0);
-        }
+        let u = update_from_slider.clone();
+        move |_v: f64| u(Some(0))
     });
     let on_y_change = Rc::new({
-        let ax = axis_x;
-        let ay = axis_y;
-        let az = axis_z;
-        let ang = angle;
-        let axis_source_is_slider = axis_source_is_slider.clone();
-        let update = update_rotation_from_axis.clone();
-        move |_v: f64| {
-            *axis_source_is_slider.borrow_mut() = true;
-            let (x, y, z) = (ax.get_untracked(), ay.get_untracked(), az.get_untracked());
-            let a = ang.get_untracked();
-            update(x, y, z, a, 1);
-        }
+        let u = update_from_slider.clone();
+        move |_v: f64| u(Some(1))
     });
     let on_z_change = Rc::new({
-        let ax = axis_x;
-        let ay = axis_y;
-        let az = axis_z;
-        let ang = angle;
-        let axis_source_is_slider = axis_source_is_slider.clone();
-        let update = update_rotation_from_axis.clone();
-        move |_v: f64| {
-            *axis_source_is_slider.borrow_mut() = true;
-            let (x, y, z) = (ax.get_untracked(), ay.get_untracked(), az.get_untracked());
-            let a = ang.get_untracked();
-            update(x, y, z, a, 2);
-        }
+        let u = update_from_slider.clone();
+        move |_v: f64| u(Some(2))
+    });
+    let on_angle_change = Rc::new({
+        let u = update_from_slider.clone();
+        move |_v: f64| u(None)
     });
 
     let on_x_pd = Rc::new({
@@ -199,18 +141,6 @@ pub fn AxisAngleSliderGroup(
     let on_z_pd = Rc::new({
         let order = order.clone();
         move || touch_order(order.borrow_mut().as_mut(), 2)
-    });
-
-    let on_angle_change = Rc::new({
-        let ax = axis_x;
-        let ay = axis_y;
-        let az = axis_z;
-        let angle_source_is_slider = angle_source_is_slider.clone();
-        move |v: f64| {
-            *angle_source_is_slider.borrow_mut() = true;
-            let (x, y, z) = (ax.get_untracked(), ay.get_untracked(), az.get_untracked());
-            update_rotation_from_angle(x, y, z, v);
-        }
     });
 
     // Angle slider: use degrees or radians config. We render both and hide one via CSS
