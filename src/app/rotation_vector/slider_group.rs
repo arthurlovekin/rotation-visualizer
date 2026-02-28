@@ -6,7 +6,7 @@
 //! marks on the track.
 //!
 //! **State flow**:
-//! - Slider values (rv_x, rv_y, rv_z) → update rotation → rotation (source of truth)
+//! - Slider values (rv_x, rv_y, rv_z) → on_change → rotation (source of truth)
 //! - rotation → simplified (memo) → Effect syncs back to sliders when rotation changes externally
 //! - When the library normalizes (e.g. norm wraps at 2π), we keep slider values for smooth
 //!   dragging; ticks show the simplified form.
@@ -21,23 +21,21 @@ use leptos::prelude::*;
 use crate::app::rotation::{Rotation, RotationVector};
 use crate::app::slider_widget::{CustomSlider, CustomSliderConfig};
 
-fn make_on_change(update: Rc<dyn Fn(usize)>, idx: usize) -> Rc<dyn Fn(f64)> {
-    Rc::new(move |_| update(idx))
-}
-
 #[component]
 pub fn RotationVectorSliderGroup(
     rotation: RwSignal<Rotation>,
     format_config: CustomSliderConfig,
 ) -> impl IntoView {
-    // Slider state: unsimplified form (components ∈ [-2π, 2π])
+    // ─── Slider state (unsimplified, ∈ [-2π, 2π]) ─────────────────────────
     let rv_x = RwSignal::new(0.0_f64);
     let rv_y = RwSignal::new(0.0_f64);
     let rv_z = RwSignal::new(0.0_f64);
 
-    let slider_did_update = Rc::new(RefCell::new(false));
+    // Skip Effect sync when the change came from our own slider (avoids overwriting
+    // unsimplified values with normalized ones during drag).
+    let skip_next_sync = Rc::new(RefCell::new(false));
 
-    // Simplified form (from rotation) drives tick marks.
+    // ─── Derived: simplified form for tick marks ─────────────────────────
     let simplified = Memo::new(move |_| {
         let rv = rotation.get().as_rotation_vector();
         (rv.x as f64, rv.y as f64, rv.z as f64)
@@ -46,41 +44,38 @@ pub fn RotationVectorSliderGroup(
     let simplified_y = Memo::new(move |_| simplified.get().1);
     let simplified_z = Memo::new(move |_| simplified.get().2);
 
-    // Sync rotation → sliders when rotation changes externally (not from our slider).
+    // ─── Sync: rotation → sliders (when rotation changes externally) ───────
     Effect::new({
-        let slider_did_update = slider_did_update.clone();
+        let skip_next_sync = skip_next_sync.clone();
         move || {
             let _ = rotation.get();
-            if *slider_did_update.borrow() {
-                *slider_did_update.borrow_mut() = false;
+            if *skip_next_sync.borrow() {
+                *skip_next_sync.borrow_mut() = false;
                 return;
             }
             let (sx, sy, sz) = simplified.get();
-            let pi = std::f64::consts::PI;
+            let (lo, hi) = (-2.0 * std::f64::consts::PI, 2.0 * std::f64::consts::PI);
             batch(|| {
-                rv_x.set(sx.clamp(-2.0 * pi, 2.0 * pi));
-                rv_y.set(sy.clamp(-2.0 * pi, 2.0 * pi));
-                rv_z.set(sz.clamp(-2.0 * pi, 2.0 * pi));
+                rv_x.set(sx.clamp(lo, hi));
+                rv_y.set(sy.clamp(lo, hi));
+                rv_z.set(sz.clamp(lo, hi));
             });
         }
     });
 
-    // Slider → rotation: pass raw values; library normalizes internally.
-    let update_from_slider = Rc::new({
-        let slider_did_update = slider_did_update.clone();
-        move |_idx: usize| {
-            *slider_did_update.borrow_mut() = true;
-            let x = rv_x.get_untracked() as f32;
-            let y = rv_y.get_untracked() as f32;
-            let z = rv_z.get_untracked() as f32;
-            let rv = RotationVector::new(x, y, z);
+    // ─── Write: sliders → rotation ────────────────────────────────────────
+    let on_change = Rc::new({
+        let skip_next_sync = skip_next_sync.clone();
+        move |_value: f64| {
+            *skip_next_sync.borrow_mut() = true;
+            let rv = RotationVector::new(
+                rv_x.get_untracked() as f32,
+                rv_y.get_untracked() as f32,
+                rv_z.get_untracked() as f32,
+            );
             rotation.set(Rotation::from(rv));
         }
     });
-
-    let on_x_change = make_on_change(update_from_slider.clone(), 0);
-    let on_y_change = make_on_change(update_from_slider.clone(), 1);
-    let on_z_change = make_on_change(update_from_slider.clone(), 2);
 
     let config = format_config.clone();
 
@@ -92,7 +87,7 @@ pub fn RotationVectorSliderGroup(
                     config=config.clone()
                     value=rv_x
                     dual_value=simplified_x
-                    on_value_change=on_x_change
+                    on_value_change=on_change.clone()
                 />
             </div>
             <div style="order: 1;">
@@ -101,7 +96,7 @@ pub fn RotationVectorSliderGroup(
                     config=config.clone()
                     value=rv_y
                     dual_value=simplified_y
-                    on_value_change=on_y_change
+                    on_value_change=on_change.clone()
                 />
             </div>
             <div style="order: 2;">
@@ -110,7 +105,7 @@ pub fn RotationVectorSliderGroup(
                     config=config.clone()
                     value=rv_z
                     dual_value=simplified_z
-                    on_value_change=on_z_change
+                    on_value_change=on_change.clone()
                 />
             </div>
         </div>
