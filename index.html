@@ -31,6 +31,15 @@
         display: flex;
         height: 100%;
         width: 100%;
+        --panel-left-width: 40%;
+      }
+      .panel-left {
+        flex: 0 0 var(--panel-left-width);
+        min-width: 200px;
+        max-width: 80%;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
       }
       #leptos-app {
         flex: 1;
@@ -40,7 +49,6 @@
         background: linear-gradient(to right, var(--bg-left) 0%, var(--bg-left-end) 100%);
         color: var(--color-primary);
         font-family: var(--font-mono);
-        border-right: 2px solid var(--border-strong);
       }
       #leptos-app h1 {
         font-family: var(--font-mono);
@@ -124,8 +132,21 @@
       #leptos-app .convention-row {
         margin-bottom: 0.6em;
       }
+      .resize-handle {
+        flex: 0 0 6px;
+        cursor: col-resize;
+        background: var(--border-strong);
+        transition: background 0.15s ease;
+      }
+      .resize-handle:hover {
+        background: var(--accent-muted);
+      }
+      .resize-handle:active {
+        background: var(--accent);
+      }
       .canvas-container {
-        flex: 0 0 50%;
+        flex: 1;
+        min-width: 200px;
         height: 100%;
         position: relative;
         background: linear-gradient(135deg, var(--bg-right) 0%, #0a0a14 50%, #080812 100%);
@@ -176,10 +197,61 @@
   </head>
   <body>
     <div class="container">
-      <div id="leptos-app"></div>
+      <div class="panel-left">
+        <div id="leptos-app"></div>
+      </div>
+      <div class="resize-handle" id="resize-handle"></div>
       <div class="canvas-container">
         <canvas id="three-canvas"></canvas>
       </div>
     </div>
+    <script>
+      (function() {
+        const container = document.querySelector('.container');
+        const handle = document.getElementById('resize-handle');
+        const minLeftPct = 20;
+        const maxLeftPct = 80;
+
+        let isDragging = false;
+
+        function setWidth(pct) {
+          const clamped = Math.max(minLeftPct, Math.min(maxLeftPct, pct));
+          container.style.setProperty('--panel-left-width', clamped + '%');
+          try { localStorage.setItem('rotation-visualizer-panel-width', clamped); } catch (_) {}
+        }
+
+        try {
+          const saved = localStorage.getItem('rotation-visualizer-panel-width');
+          if (saved != null) setWidth(parseFloat(saved));
+        } catch (_) {}
+
+        handle.addEventListener('mousedown', function(e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          isDragging = true;
+        });
+
+        document.addEventListener('mousemove', function(e) {
+          if (!isDragging) return;
+          const rect = container.getBoundingClientRect();
+          const pct = ((e.clientX - rect.left) / rect.width) * 100;
+          setWidth(pct);
+          if (window.wasmBindings?.request_canvas_redraw) {
+            window.wasmBindings.request_canvas_redraw();
+          }
+        });
+
+        document.addEventListener('mouseup', function() {
+          if (isDragging && window.wasmBindings?.request_canvas_redraw) {
+            window.wasmBindings.request_canvas_redraw();
+          }
+          isDragging = false;
+        });
+
+        document.addEventListener('mouseleave', function() {
+          isDragging = false;
+        });
+      })();
+    </script>
   </body>
 </html>

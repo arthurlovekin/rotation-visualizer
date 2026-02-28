@@ -1,6 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 use leptos::mount::mount_to;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
@@ -160,6 +163,22 @@ pub(crate) enum ActiveInput {
 
 /// Callback to request a 3D canvas redraw (used for reactive rendering).
 pub type RequestRedraw = Rc<dyn Fn()>;
+
+#[cfg(target_arch = "wasm32")]
+std::thread_local! {
+    static REDRAW_CB: RefCell<Option<RequestRedraw>> = RefCell::new(None);
+}
+
+/// Called from JS when the viewport is resized (e.g. by dragging the divider).
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn request_canvas_redraw() {
+    REDRAW_CB.with(|r| {
+        if let Some(ref cb) = *r.borrow() {
+            cb();
+        }
+    });
+}
 
 // ---------------------------------------------------------------------------
 // App root
@@ -550,6 +569,7 @@ pub fn main() {
             let _ = redraw_proxy.send_event(());
         });
         let request_redraw_for_app = request_redraw.clone();
+        REDRAW_CB.with(|r| *r.borrow_mut() = Some(request_redraw.clone()));
 
         let leptos_root = leptos::tachys::dom::document()
             .get_element_by_id("leptos-app")
