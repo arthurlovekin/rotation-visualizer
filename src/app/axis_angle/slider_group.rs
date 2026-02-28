@@ -61,8 +61,13 @@ pub fn AxisAngleSliderGroup(
         let (ax, ay, az, a) = simplified.get();
         let deg = use_degrees.get();
         let angle_val = if deg { a.to_degrees() } else { a };
+        let (sx, sy, sz) = (axis_x.get_untracked(), axis_y.get_untracked(), axis_z.get_untracked());
+        // If simplified axis is the negation of current (angle ≥ π flip), keep axes where they are;
+        // ticks still show simplified form. Otherwise sync axis from simplified.
+        let dot = ax * sx + ay * sy + az * sz;
+        let skip_axis_sync = a.abs() > AXIS_EPSILON && dot < -0.99;
         batch(|| {
-            if a.abs() > AXIS_EPSILON {
+            if a.abs() > AXIS_EPSILON && !skip_axis_sync {
                 axis_x.set(ax);
                 axis_y.set(ay);
                 axis_z.set(az);
@@ -72,23 +77,24 @@ pub fn AxisAngleSliderGroup(
     });
 
     // Update rotation from unsimplified slider values. changed_idx = which axis changed (for LRU).
+    // Always writes normalized axis back to sliders so they stay normalized.
     let update_rotation = Rc::new({
         let order_for_update = order_for_update;
-        move |ax: f64, ay: f64, az: f64, a: f64, changed_idx: Option<usize>| {
+        move |ax: f64, ay: f64, az: f64, a: f64, changed_idx: Option<usize>| -> Option<(f64, f64, f64)> {
             let norm_sq = ax * ax + ay * ay + az * az;
             if norm_sq < AXIS_EPSILON {
                 rotation.set(Rotation::default());
-                return;
+                return None;
             }
             let (nx, ny, nz) = match changed_idx {
                 Some(i) => {
                     let ord = *order_for_update.borrow();
                     let n = normalize_lru_3([ax, ay, az], i, &ord);
-                    (n[0] as f32, n[1] as f32, n[2] as f32)
+                    (n[0], n[1], n[2])
                 }
                 None => {
                     let norm = norm_sq.sqrt();
-                    ((ax / norm) as f32, (ay / norm) as f32, (az / norm) as f32)
+                    (ax / norm, ay / norm, az / norm)
                 }
             };
             let angle_rad = if use_degrees.get_untracked() {
@@ -96,8 +102,11 @@ pub fn AxisAngleSliderGroup(
             } else {
                 a as f32
             };
-            if let Ok(aa) = AxisAngle::try_new(nx, ny, nz, angle_rad) {
+            if let Ok(aa) = AxisAngle::try_new(nx as f32, ny as f32, nz as f32, angle_rad) {
                 rotation.set(Rotation::from(aa));
+                Some((nx, ny, nz))
+            } else {
+                None
             }
         }
     });
@@ -109,7 +118,13 @@ pub fn AxisAngleSliderGroup(
             *slider_did_update.borrow_mut() = true;
             let (x, y, z) = (axis_x.get_untracked(), axis_y.get_untracked(), axis_z.get_untracked());
             let a = angle.get_untracked();
-            update_rotation(x, y, z, a, changed_idx);
+            if let Some((nx, ny, nz)) = update_rotation(x, y, z, a, changed_idx) {
+                batch(|| {
+                    axis_x.set(nx);
+                    axis_y.set(ny);
+                    axis_z.set(nz);
+                });
+            }
         }
     });
 
