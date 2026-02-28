@@ -53,6 +53,37 @@ impl CustomSliderConfig {
         }
     }
 
+    /// Angle slider [-π, 2π] with markers. Allows unsimplified values; simplified form [0, π] shown as tick.
+    pub fn angle_rad_neg_pi_2pi() -> Self {
+        let pi = std::f64::consts::PI;
+        Self {
+            min: -pi,
+            max: 2.0 * pi,
+            markers: vec![
+                SliderMarker { value: -pi, label: "-π".to_string() },
+                SliderMarker { value: 0.0, label: "0".to_string() },
+                SliderMarker { value: pi / 2.0, label: "π/2".to_string() },
+                SliderMarker { value: pi, label: "π".to_string() },
+                SliderMarker { value: 2.0 * pi, label: "2π".to_string() },
+            ],
+        }
+    }
+
+    /// Angle slider [-180°, 360°] with markers. Allows unsimplified values; simplified form [0°, 180°] shown as tick.
+    pub fn angle_deg_neg180_360() -> Self {
+        Self {
+            min: -180.0,
+            max: 360.0,
+            markers: vec![
+                SliderMarker { value: -180.0, label: "-180°".to_string() },
+                SliderMarker { value: 0.0, label: "0°".to_string() },
+                SliderMarker { value: 90.0, label: "90°".to_string() },
+                SliderMarker { value: 180.0, label: "180°".to_string() },
+                SliderMarker { value: 360.0, label: "360°".to_string() },
+            ],
+        }
+    }
+
     /// Quaternion component slider [-1, 1].
     pub fn quaternion_component() -> Self {
         Self {

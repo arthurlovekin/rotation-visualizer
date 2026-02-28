@@ -2,7 +2,8 @@
 //!
 //! Four sliders: unit vector x, y, z (each [-1, 1]) and angle θ.
 //! Uses Least-Recently-Used normalization for the axis components.
-//! Angle slider uses radians [0, π] or degrees [0, 180] based on use_degrees.
+//! Angle slider uses radians [-π, 2π] or degrees [-180°, 360°] with a tick mark
+//! showing the simplified form [0, π] / [0°, 180°] for smooth dragging.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -18,39 +19,84 @@ const AXIS_EPSILON: f64 = 1e-10;
 #[component]
 pub fn AxisAngleSliderGroup(
     rotation: RwSignal<Rotation>,
-    /// true = degrees [0, 180], false = radians [0, π]
+    /// true = degrees [-180°, 360°], false = radians [-π, 2π]
     use_degrees: RwSignal<bool>,
 ) -> impl IntoView {
     // default to [0,1,0,0] because axis doesn't matter with 0 angle, but don't want to lock sliders
-    let axis_x = RwSignal::new(1.0_f64); 
+    let axis_x = RwSignal::new(1.0_f64);
     let axis_y = RwSignal::new(0.0_f64);
     let axis_z = RwSignal::new(0.0_f64);
     let angle = RwSignal::new(0.0_f64);
 
     let order = Rc::new(RefCell::new([0, 1, 2]));
     let order_for_update = order.clone();
+    let angle_source_is_slider = Rc::new(RefCell::new(false));
+    let angle_source_is_slider_for_effect = angle_source_is_slider.clone();
+    let axis_source_is_slider = Rc::new(RefCell::new(false));
+    let axis_source_is_slider_for_effect = axis_source_is_slider.clone();
 
     let axis_config = CustomSliderConfig::quaternion_component();
-    let angle_config_rad = CustomSliderConfig::angle_0_pi();
-    let angle_config_deg = CustomSliderConfig::angle_degrees_0_180();
+    let angle_config_rad = CustomSliderConfig::angle_rad_neg_pi_2pi();
+    let angle_config_deg = CustomSliderConfig::angle_deg_neg180_360();
+
+    // Simplified angle from rotation [0, π] or [0°, 180°] — shown as tick mark.
+    let simplified_angle_rad = Memo::new(move |_| {
+        let rot = rotation.get();
+        let aa = rot.as_axis_angle();
+        aa.angle as f64
+    });
+    let simplified_angle_deg = Memo::new(move |_| {
+        let rot = rotation.get();
+        let aa = rot.as_axis_angle();
+        (aa.angle as f64).to_degrees()
+    });
+
+    // Simplified axis from rotation — shown as tick marks (axis flips when angle >= π).
+    let simplified_axis_x = Memo::new(move |_| {
+        let rot = rotation.get();
+        let aa = rot.as_axis_angle();
+        aa.x as f64
+    });
+    let simplified_axis_y = Memo::new(move |_| {
+        let rot = rotation.get();
+        let aa = rot.as_axis_angle();
+        aa.y as f64
+    });
+    let simplified_axis_z = Memo::new(move |_| {
+        let rot = rotation.get();
+        let aa = rot.as_axis_angle();
+        aa.z as f64
+    });
 
     // Sync rotation -> sliders when rotation changes.
     // When angle is zero, the axis is arbitrary (identity rotation). Don't overwrite axis
     // sliders so the user can freely move them to explore unit vectors without fighting
     // the Effect that would reset them to [1,0,0].
+    // When the change came from our angle slider, don't overwrite angle or axis (axis flips with angle).
+    // When the change came from our axis slider, don't overwrite axis.
     Effect::new(move || {
         let rot = rotation.get();
         let deg = use_degrees.get();
         let aa = rot.as_axis_angle();
         let (ax, ay, az, a) = (aa.x as f64, aa.y as f64, aa.z as f64, aa.angle as f64);
         let angle_val = if deg { a.to_degrees() } else { a };
+        let angle_from_user = *angle_source_is_slider_for_effect.borrow();
+        let axis_from_user = *axis_source_is_slider_for_effect.borrow();
         batch(|| {
-            if a.abs() > AXIS_EPSILON {
+            if !angle_from_user && a.abs() > AXIS_EPSILON && !axis_from_user {
                 axis_x.set(ax);
                 axis_y.set(ay);
                 axis_z.set(az);
             }
-            angle.set(angle_val);
+            if angle_from_user {
+                *angle_source_is_slider_for_effect.borrow_mut() = false;
+            }
+            if axis_from_user {
+                *axis_source_is_slider_for_effect.borrow_mut() = false;
+            }
+            if !angle_from_user {
+                angle.set(angle_val);
+            }
         });
     });
 
@@ -104,8 +150,10 @@ pub fn AxisAngleSliderGroup(
         let ay = axis_y;
         let az = axis_z;
         let ang = angle;
+        let axis_source_is_slider = axis_source_is_slider.clone();
         let update = update_rotation_from_axis.clone();
         move |_v: f64| {
+            *axis_source_is_slider.borrow_mut() = true;
             let (x, y, z) = (ax.get_untracked(), ay.get_untracked(), az.get_untracked());
             let a = ang.get_untracked();
             update(x, y, z, a, 0);
@@ -116,8 +164,10 @@ pub fn AxisAngleSliderGroup(
         let ay = axis_y;
         let az = axis_z;
         let ang = angle;
+        let axis_source_is_slider = axis_source_is_slider.clone();
         let update = update_rotation_from_axis.clone();
         move |_v: f64| {
+            *axis_source_is_slider.borrow_mut() = true;
             let (x, y, z) = (ax.get_untracked(), ay.get_untracked(), az.get_untracked());
             let a = ang.get_untracked();
             update(x, y, z, a, 1);
@@ -128,8 +178,10 @@ pub fn AxisAngleSliderGroup(
         let ay = axis_y;
         let az = axis_z;
         let ang = angle;
+        let axis_source_is_slider = axis_source_is_slider.clone();
         let update = update_rotation_from_axis.clone();
         move |_v: f64| {
+            *axis_source_is_slider.borrow_mut() = true;
             let (x, y, z) = (ax.get_untracked(), ay.get_untracked(), az.get_untracked());
             let a = ang.get_untracked();
             update(x, y, z, a, 2);
@@ -153,7 +205,9 @@ pub fn AxisAngleSliderGroup(
         let ax = axis_x;
         let ay = axis_y;
         let az = axis_z;
+        let angle_source_is_slider = angle_source_is_slider.clone();
         move |v: f64| {
+            *angle_source_is_slider.borrow_mut() = true;
             let (x, y, z) = (ax.get_untracked(), ay.get_untracked(), az.get_untracked());
             update_rotation_from_angle(x, y, z, v);
         }
@@ -161,12 +215,14 @@ pub fn AxisAngleSliderGroup(
 
     // Angle slider: use degrees or radians config. We render both and hide one via CSS
     // to avoid Send/Sync issues with conditional closures capturing Rc.
+    // dual_value shows the simplified form [0, π] / [0°, 180°] as a tick mark.
     let angle_slider_rad = view! {
         <div style:display=move || if use_degrees.get() { "none" } else { "block" }>
             <CustomSlider
                 label="θ"
                 config=angle_config_rad.clone()
                 value=angle
+                dual_value=simplified_angle_rad
                 on_value_change=on_angle_change.clone()
             />
         </div>
@@ -177,6 +233,7 @@ pub fn AxisAngleSliderGroup(
                 label="θ"
                 config=angle_config_deg.clone()
                 value=angle
+                dual_value=simplified_angle_deg
                 on_value_change=on_angle_change.clone()
             />
         </div>
@@ -189,6 +246,7 @@ pub fn AxisAngleSliderGroup(
                     label="x"
                     config=axis_config.clone()
                     value=axis_x
+                    dual_value=simplified_axis_x
                     on_handle_pointerdown=on_x_pd
                     on_value_change=on_x_change
                 />
@@ -198,6 +256,7 @@ pub fn AxisAngleSliderGroup(
                     label="y"
                     config=axis_config.clone()
                     value=axis_y
+                    dual_value=simplified_axis_y
                     on_handle_pointerdown=on_y_pd
                     on_value_change=on_y_change
                 />
@@ -207,6 +266,7 @@ pub fn AxisAngleSliderGroup(
                     label="z"
                     config=axis_config.clone()
                     value=axis_z
+                    dual_value=simplified_axis_z
                     on_handle_pointerdown=on_z_pd
                     on_value_change=on_z_change
                 />
