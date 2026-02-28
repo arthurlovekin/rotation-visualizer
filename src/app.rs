@@ -97,18 +97,20 @@ impl CustomSliderConfig {
         }
     }
 
-    /// Rotation vector component slider [-π, π - ε].
-    /// Avoids teleport at π by stopping just short. ε = 0.001 (thousandths).
+    /// Rotation vector component slider [-2π, 2π].
     pub fn rotation_vector_component() -> Self {
         let pi = std::f64::consts::PI;
-        let max = pi - 0.001;
         Self {
-            min: -pi,
-            max,
+            min: -2.0 * pi,
+            max: 2.0 * pi,
             markers: vec![
+                SliderMarker { value: -2.0 * pi, label: "-2π".to_string() },
                 SliderMarker { value: -pi, label: "-π".to_string() },
+                SliderMarker { value: -pi / 2.0, label: "-π/2".to_string() },
                 SliderMarker { value: 0.0, label: "0".to_string() },
-                SliderMarker { value: max, label: "π".to_string() },
+                SliderMarker { value: pi / 2.0, label: "π/2".to_string() },
+                SliderMarker { value: pi, label: "π".to_string() },
+                SliderMarker { value: 2.0 * pi, label: "2π".to_string() },
             ],
         }
     }
