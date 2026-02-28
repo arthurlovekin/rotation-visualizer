@@ -57,11 +57,6 @@ pub fn RotationVectorBox(
         active_input.set(ActiveInput::None);
     };
 
-    // Slider values lifted to parent so we can convert them when switching units
-    let rv_x = RwSignal::new(0.0_f64);
-    let rv_y = RwSignal::new(0.0_f64);
-    let rv_z = RwSignal::new(0.0_f64);
-
     let on_angle_unit_change = move |ev: leptos::web_sys::Event| {
         active_input.set(ActiveInput::None);
         let value = ev
@@ -69,27 +64,7 @@ pub fn RotationVectorBox(
             .unwrap()
             .unchecked_into::<HtmlSelectElement>()
             .value();
-        let new_use_degrees = value == "degrees";
-        // Convert slider values to the new unit before switching, so the sliders
-        // display correctly (e.g. 90° → π/2 rad, not 90 on a rad scale)
-        let rv = rotation.get().as_rotation_vector();
-        if new_use_degrees {
-            let rv_deg = rv.as_degrees();
-            let (lo, hi) = (-360.0_f64, 360.0_f64);
-            batch(|| {
-                rv_x.set((rv_deg.x as f64).clamp(lo, hi));
-                rv_y.set((rv_deg.y as f64).clamp(lo, hi));
-                rv_z.set((rv_deg.z as f64).clamp(lo, hi));
-            });
-        } else {
-            let (lo, hi) = (-2.0 * std::f64::consts::PI, 2.0 * std::f64::consts::PI);
-            batch(|| {
-                rv_x.set((rv.x as f64).clamp(lo, hi));
-                rv_y.set((rv.y as f64).clamp(lo, hi));
-                rv_z.set((rv.z as f64).clamp(lo, hi));
-            });
-        }
-        use_degrees.set(new_use_degrees);
+        use_degrees.set(value == "degrees");
     };
 
     view! {
@@ -111,13 +86,7 @@ pub fn RotationVectorBox(
                     <option value="degrees">"degrees"</option>
                 </select>
             </div>
-            <RotationVectorSliderGroup
-                rotation=rotation
-                use_degrees=use_degrees
-                rv_x=rv_x
-                rv_y=rv_y
-                rv_z=rv_z
-            />
+            <RotationVectorSliderGroup rotation=rotation use_degrees=use_degrees />
         </CollapsibleSection>
     }
 }
