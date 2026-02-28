@@ -2,6 +2,7 @@
 
 use leptos::prelude::*;
 
+use crate::app::collapsible_section::CollapsibleSection;
 use crate::app::dom::input_event_value;
 use crate::app::format::{parse_vector_and_format, VectorFormat};
 use crate::app::rotation::{Rotation, RotationVector};
@@ -51,8 +52,7 @@ pub fn RotationVectorBox(
     let rv_config = CustomSliderConfig::rotation_vector_component();
 
     view! {
-        <div class="control-section">
-            <h2>"Rotation Vector"</h2>
+        <CollapsibleSection title="Rotation Vector">
             <input
                 type="text"
                 class="vector-input vector-input-3"
@@ -61,6 +61,6 @@ pub fn RotationVectorBox(
                 on:blur=on_blur
             />
             <RotationVectorSliderGroup rotation=rotation slider_config=rv_config />
-        </div>
+        </CollapsibleSection>
     }
 }

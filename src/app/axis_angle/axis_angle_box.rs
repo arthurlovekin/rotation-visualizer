@@ -4,6 +4,7 @@ use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::HtmlSelectElement;
 
+use crate::app::collapsible_section::CollapsibleSection;
 use crate::app::dom::input_event_value;
 use crate::app::format::{parse_vector_and_format, VectorFormat};
 use crate::app::rotation::{AxisAngle, Rotation};
@@ -71,8 +72,7 @@ pub fn AxisAngleBox(
     };
 
     view! {
-        <div class="control-section">
-            <h2>"Axis-Angle"</h2>
+        <CollapsibleSection title="Axis-Angle">
             <input
             type="text"
             class="vector-input vector-input-4"
@@ -91,6 +91,6 @@ pub fn AxisAngleBox(
                 </select>
             </div>
             <AxisAngleSliderGroup rotation=rotation use_degrees=use_degrees />
-        </div>
+        </CollapsibleSection>
     }
 }

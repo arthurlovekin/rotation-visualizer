@@ -2,6 +2,7 @@
 
 use leptos::prelude::*;
 
+use crate::app::collapsible_section::CollapsibleSection;
 use crate::app::dom::textarea_event_value;
 use crate::app::format::{parse_matrix_and_format, MatrixFormat};
 use crate::app::rotation::{Rotation, RotationMatrix};
@@ -48,8 +49,7 @@ pub fn RotationMatrixBox(
     };
 
     view! {
-        <div class="control-section">
-            <h2>"Rotation Matrix"</h2>
+        <CollapsibleSection title="Rotation Matrix">
             <textarea
                 rows=3
                 class="vector-input matrix-input"
@@ -57,6 +57,6 @@ pub fn RotationMatrixBox(
                 on:input=on_input
                 on:blur=on_blur
             />
-        </div>
+        </CollapsibleSection>
     }
 }

@@ -4,6 +4,7 @@ use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::HtmlSelectElement;
 
+use crate::app::collapsible_section::CollapsibleSection;
 use crate::app::dom::input_event_value;
 use crate::app::format::{parse_vector_and_format, VectorFormat};
 use crate::app::rotation::{Quaternion, Rotation};
@@ -72,8 +73,7 @@ pub fn QuaternionBox(
     let quat_config = CustomSliderConfig::quaternion_component();
 
     view! {
-        <div class="control-section">
-            <h2>"Quaternion"</h2>
+        <CollapsibleSection title="Quaternion">
             <input
             type="text"
             class="vector-input"
@@ -92,6 +92,6 @@ pub fn QuaternionBox(
                 </select>
             </div>
             <QuaternionSliderGroup rotation=rotation slider_config=quat_config is_xyzw=is_xyzw />
-        </div>
+        </CollapsibleSection>
     }
 }

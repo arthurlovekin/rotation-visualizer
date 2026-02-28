@@ -6,6 +6,7 @@ use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 
 mod axis_angle;
+mod collapsible_section;
 mod dom;
 mod format;
 mod normalize;
