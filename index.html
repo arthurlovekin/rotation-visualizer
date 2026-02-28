@@ -205,53 +205,5 @@
         <canvas id="three-canvas"></canvas>
       </div>
     </div>
-    <script>
-      (function() {
-        const container = document.querySelector('.container');
-        const handle = document.getElementById('resize-handle');
-        const minLeftPct = 20;
-        const maxLeftPct = 80;
-
-        let isDragging = false;
-
-        function setWidth(pct) {
-          const clamped = Math.max(minLeftPct, Math.min(maxLeftPct, pct));
-          container.style.setProperty('--panel-left-width', clamped + '%');
-          try { localStorage.setItem('rotation-visualizer-panel-width', clamped); } catch (_) {}
-        }
-
-        try {
-          const saved = localStorage.getItem('rotation-visualizer-panel-width');
-          if (saved != null) setWidth(parseFloat(saved));
-        } catch (_) {}
-
-        handle.addEventListener('mousedown', function(e) {
-          if (e.button !== 0) return;
-          e.preventDefault();
-          isDragging = true;
-        });
-
-        document.addEventListener('mousemove', function(e) {
-          if (!isDragging) return;
-          const rect = container.getBoundingClientRect();
-          const pct = ((e.clientX - rect.left) / rect.width) * 100;
-          setWidth(pct);
-          if (window.wasmBindings?.request_canvas_redraw) {
-            window.wasmBindings.request_canvas_redraw();
-          }
-        });
-
-        document.addEventListener('mouseup', function() {
-          if (isDragging && window.wasmBindings?.request_canvas_redraw) {
-            window.wasmBindings.request_canvas_redraw();
-          }
-          isDragging = false;
-        });
-
-        document.addEventListener('mouseleave', function() {
-          isDragging = false;
-        });
-      })();
-    </script>
   </body>
 </html>

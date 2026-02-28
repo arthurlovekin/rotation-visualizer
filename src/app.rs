@@ -1,9 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
 use leptos::mount::mount_to;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
@@ -165,19 +162,98 @@ pub(crate) enum ActiveInput {
 pub type RequestRedraw = Rc<dyn Fn()>;
 
 #[cfg(target_arch = "wasm32")]
-std::thread_local! {
-    static REDRAW_CB: RefCell<Option<RequestRedraw>> = RefCell::new(None);
-}
+fn setup_resize_handle(request_redraw: RequestRedraw) {
+    use leptos::wasm_bindgen::closure::Closure;
+    use leptos::web_sys::{Element, HtmlElement, MouseEvent};
 
-/// Called from JS when the viewport is resized (e.g. by dragging the divider).
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn request_canvas_redraw() {
-    REDRAW_CB.with(|r| {
-        if let Some(ref cb) = *r.borrow() {
-            cb();
+    let window = leptos::web_sys::window().expect("no window");
+    let document = window.document().expect("no document");
+    let container = document
+        .query_selector(".container")
+        .ok()
+        .flatten()
+        .and_then(|el| el.dyn_into::<HtmlElement>().ok());
+    let handle = document
+        .get_element_by_id("resize-handle")
+        .and_then(|el| el.dyn_into::<Element>().ok());
+
+    let (container, handle) = match (container, handle) {
+        (Some(c), Some(h)) => (c, h),
+        _ => return,
+    };
+
+    // Restore saved width
+    if let Ok(Some(storage)) = window.local_storage() {
+        if let Ok(Some(saved)) = storage.get_item("rotation-visualizer-panel-width") {
+            if let Ok(pct) = saved.parse::<f64>() {
+                let clamped = pct.clamp(20.0, 80.0);
+                let _ = container.style().set_property("--panel-left-width", &format!("{}%", clamped));
+                let _ = storage.set_item("rotation-visualizer-panel-width", &clamped.to_string());
+            }
         }
-    });
+    }
+
+    let is_dragging = Rc::new(RefCell::new(false));
+
+    let down_closure = Closure::wrap(Box::new({
+        let is_dragging = is_dragging.clone();
+        move |ev: MouseEvent| {
+            if ev.button() != 0 {
+                return;
+            }
+            ev.prevent_default();
+            *is_dragging.borrow_mut() = true;
+        }
+    }) as Box<dyn FnMut(MouseEvent)>);
+
+    let move_closure = Closure::wrap(Box::new({
+        let container = container.clone();
+        let is_dragging = is_dragging.clone();
+        let request_redraw = request_redraw.clone();
+        move |ev: MouseEvent| {
+            if !*is_dragging.borrow() {
+                return;
+            }
+            let rect = container.get_bounding_client_rect();
+            let pct = ((ev.client_x() as f64 - rect.left()) / rect.width()) * 100.0;
+            let clamped = pct.clamp(20.0, 80.0);
+            let _ = container.style().set_property("--panel-left-width", &format!("{}%", clamped));
+            if let Some(w) = leptos::web_sys::window() {
+                if let Ok(Some(storage)) = w.local_storage() {
+                    let _ = storage.set_item("rotation-visualizer-panel-width", &clamped.to_string());
+                }
+            }
+            request_redraw();
+        }
+    }) as Box<dyn FnMut(MouseEvent)>);
+
+    let up_closure = Closure::wrap(Box::new({
+        let is_dragging = is_dragging.clone();
+        let request_redraw = request_redraw.clone();
+        move |_ev: MouseEvent| {
+            if *is_dragging.borrow() {
+                request_redraw();
+            }
+            *is_dragging.borrow_mut() = false;
+        }
+    }) as Box<dyn FnMut(MouseEvent)>);
+
+    let leave_closure = Closure::wrap(Box::new({
+        let is_dragging = is_dragging.clone();
+        move |_ev: MouseEvent| {
+            *is_dragging.borrow_mut() = false;
+        }
+    }) as Box<dyn FnMut(MouseEvent)>);
+
+    let _ = handle.add_event_listener_with_callback("mousedown", down_closure.as_ref().unchecked_ref());
+    let _ = document.add_event_listener_with_callback("mousemove", move_closure.as_ref().unchecked_ref());
+    let _ = document.add_event_listener_with_callback("mouseup", up_closure.as_ref().unchecked_ref());
+    let _ = document.add_event_listener_with_callback("mouseleave", leave_closure.as_ref().unchecked_ref());
+
+    down_closure.forget();
+    move_closure.forget();
+    up_closure.forget();
+    leave_closure.forget();
 }
 
 // ---------------------------------------------------------------------------
@@ -201,13 +277,21 @@ fn App(
 
     // Sync rotation to the three-d renderer and request redraw when it changes
     if let Some(shared) = rotation_for_renderer {
-        let redraw = request_redraw;
+        let redraw = request_redraw.clone();
         Effect::new(move || {
             let rot = rotation.get();
             *shared.borrow_mut() = rot;
             if let Some(ref r) = redraw {
                 r();
             }
+        });
+    }
+
+    // Set up draggable resize handle (WASM only, runs once on mount)
+    #[cfg(target_arch = "wasm32")]
+    if let Some(redraw) = request_redraw.clone() {
+        wasm_bindgen_futures::spawn_local(async move {
+            setup_resize_handle(redraw);
         });
     }
 
@@ -569,7 +653,6 @@ pub fn main() {
             let _ = redraw_proxy.send_event(());
         });
         let request_redraw_for_app = request_redraw.clone();
-        REDRAW_CB.with(|r| *r.borrow_mut() = Some(request_redraw.clone()));
 
         let leptos_root = leptos::tachys::dom::document()
             .get_element_by_id("leptos-app")
