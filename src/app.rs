@@ -117,6 +117,23 @@ impl CustomSliderConfig {
         }
     }
 
+    /// Rotation vector component slider [-360°, 360°] (norm as angle in degrees).
+    pub fn rotation_vector_component_degrees() -> Self {
+        Self {
+            min: -360.0,
+            max: 360.0,
+            markers: vec![
+                SliderMarker { value: -360.0, label: "-360°".to_string() },
+                SliderMarker { value: -180.0, label: "-180°".to_string() },
+                SliderMarker { value: -90.0, label: "-90°".to_string() },
+                SliderMarker { value: 0.0, label: "0°".to_string() },
+                SliderMarker { value: 90.0, label: "90°".to_string() },
+                SliderMarker { value: 180.0, label: "180°".to_string() },
+                SliderMarker { value: 360.0, label: "360°".to_string() },
+            ],
+        }
+    }
+
     /// Angle slider [0, 360] degrees with 0°, 90°, 180°, 270°, 360° markers.
     pub fn angle_degrees() -> Self {
         Self {
