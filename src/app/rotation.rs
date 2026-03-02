@@ -114,6 +114,65 @@ impl From<RotationMatrix> for Quaternion {
     }
 }
 
+/// Davenport rotation sequence: order of axes for Euler angles.
+/// Notation: XYZ = extrinsic (fixed frame), xyz = intrinsic (body frame).
+/// Equivalent sequences share one variant: extrinsic XYZ ≡ intrinsic zyx.
+/// Tait-Bryan: all three axes are different
+/// Proper Euler: two axes are the same
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EulerSequence {
+    // Tait-Bryan
+    XYZ_zyx,
+    XZY_yzx,
+    YXZ_zxy,
+    YZX_xzy,
+    ZXY_yxz,
+    ZYX_xyz,
+    // Proper Euler
+    XYX_yxy,
+    XZX_zxz,
+    YXY_xyx,
+    YZY_zyz,
+    ZXZ_xzx,
+    ZYZ_yzy,
+}
+
+/// Euler angles in radians. Angles are (a, b, c) corresponding to the three axes in `sequence`.
+#[derive(Debug, Clone, Copy)]
+pub struct EulerAngles {
+    pub a: f32,
+    pub b: f32,
+    pub c: f32,
+    pub sequence: EulerSequence,
+}
+
+impl EulerAngles {
+    /// Create Euler angles from radians.
+    pub fn new(a: f32, b: f32, c: f32, sequence: EulerSequence) -> Self {
+        Self { a, b, c, sequence }
+    }
+
+    /// Create from angles in degrees. Converts to radians internally.
+    pub fn from_degrees(a_deg: f32, b_deg: f32, c_deg: f32, sequence: EulerSequence) -> Self {
+        Self::new(
+            a_deg.to_radians(),
+            b_deg.to_radians(),
+            c_deg.to_radians(),
+            sequence,
+        )
+    }
+
+    /// Returns (a, b, c) with angles in degrees.
+    pub fn as_degrees(&self) -> (f32, f32, f32) {
+        (
+            self.a.to_degrees(),
+            self.b.to_degrees(),
+            self.c.to_degrees(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct AxisAngle {
     pub x: f32,
@@ -350,6 +409,55 @@ impl From<Quaternion> for RotationMatrix {
     }
 }
 
+fn rot_x(a: f32) -> RotationMatrix {
+    let (c, s) = (a.cos(), a.sin());
+    RotationMatrix([
+        [1.0, 0.0, 0.0],
+        [0.0, c, -s],
+        [0.0, s, c],
+    ])
+}
+
+fn rot_y(a: f32) -> RotationMatrix {
+    let (c, s) = (a.cos(), a.sin());
+    RotationMatrix([
+        [c, 0.0, s],
+        [0.0, 1.0, 0.0],
+        [-s, 0.0, c],
+    ])
+}
+
+fn rot_z(a: f32) -> RotationMatrix {
+    let (c, s) = (a.cos(), a.sin());
+    RotationMatrix([
+        [c, -s, 0.0],
+        [s, c, 0.0],
+        [0.0, 0.0, 1.0],
+    ])
+}
+
+impl From<EulerAngles> for Quaternion {
+    fn from(e: EulerAngles) -> Self {
+        let (ra, rb, rc) = (e.a, e.b, e.c);
+        let (r1, r2, r3) = match e.sequence {
+            EulerSequence::XYZ_zyx => (rot_z(ra), rot_y(rb), rot_x(rc)),
+            EulerSequence::XZY_yzx => (rot_y(ra), rot_z(rb), rot_x(rc)),
+            EulerSequence::YXZ_zxy => (rot_z(ra), rot_x(rb), rot_y(rc)),
+            EulerSequence::YZX_xzy => (rot_x(ra), rot_z(rb), rot_y(rc)),
+            EulerSequence::ZXY_yxz => (rot_y(ra), rot_x(rb), rot_z(rc)),
+            EulerSequence::ZYX_xyz => (rot_x(ra), rot_y(rb), rot_z(rc)),
+            EulerSequence::XYX_yxy => (rot_y(ra), rot_x(rb), rot_y(rc)),
+            EulerSequence::XZX_zxz => (rot_z(ra), rot_x(rb), rot_z(rc)),
+            EulerSequence::YXY_xyx => (rot_x(ra), rot_y(rb), rot_x(rc)),
+            EulerSequence::YZY_zyz => (rot_z(ra), rot_y(rb), rot_z(rc)),
+            EulerSequence::ZXZ_xzx => (rot_x(ra), rot_z(rb), rot_x(rc)),
+            EulerSequence::ZYZ_yzy => (rot_y(ra), rot_z(rb), rot_y(rc)),
+        };
+        let mat = r1 * r2 * r3;
+        Self::from(mat)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rotation {
     quat: Quaternion,
@@ -378,6 +486,10 @@ impl Rotation {
         RotationMatrix::from(self.quat)
     }
 
+    /// Extract Euler angles in the given sequence.
+    pub fn as_euler_angles(&self, sequence: EulerSequence) -> EulerAngles {
+        self.quat.to_euler_angles(sequence)
+    }
 }
 
 impl From<Quaternion> for Rotation {
@@ -403,6 +515,14 @@ impl From<RotationMatrix> for Rotation {
 impl From<RotationVector> for Rotation {
     fn from(vector: RotationVector) -> Self {
         Rotation { quat: Quaternion::from(vector) }
+    }
+}
+
+impl From<EulerAngles> for Rotation {
+    fn from(euler: EulerAngles) -> Self {
+        Rotation {
+            quat: Quaternion::from(euler),
+        }
     }
 }
 
