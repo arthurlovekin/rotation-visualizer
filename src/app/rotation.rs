@@ -120,11 +120,23 @@ impl From<EulerAngles> for Quaternion {
     }
 }
 
-/// Davenport rotation sequence: order of axes for Euler angles.
-/// Notation: XYZ = extrinsic (fixed frame), xyz = intrinsic (body frame).
-/// Equivalent sequences share one variant: extrinsic XYZ ≡ intrinsic zyx.
-/// Tait-Bryan: all three axes are different
-/// Proper Euler: two axes are the same
+/// Euler rotation sequence (scipy convention).
+/// - **Uppercase** {'X','Y','Z'}: intrinsic rotations (body frame)
+/// - **Lowercase** {'x','y','z'}: extrinsic rotations (fixed frame)
+/// - Extrinsic and intrinsic cannot be mixed in one call.
+/// Macro: match canonical key string to EulerSequence variant.
+/// Uses stringify! so the string is always in sync with the variant name.
+macro_rules! match_euler_key {
+    ($key:expr, $seq:expr, $($variant:ident),* $(,)?) => {
+        match $key {
+            $(stringify!($variant) => Ok(Self::$variant),)*
+            _ => Err(format!("Unknown Euler sequence {:?}", $seq)),
+        }
+    };
+}
+
+/// Equivalent sequences share one variant: e.g. intrinsic XYZ ≡ extrinsic zyx → `XYZ_zyx`.
+/// Tait-Bryan: all three axes different. Proper Euler: two axes the same.
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EulerSequence {
@@ -142,6 +154,42 @@ pub enum EulerSequence {
     YZY_zyz,
     ZXZ_xzx,
     ZYZ_yzy,
+}
+
+impl EulerSequence {
+    /// Parse a scipy-style sequence string.
+    /// - Uppercase "XYZ", "ZYX", etc.: intrinsic (body frame)
+    /// - Lowercase "xyz", "zyx", etc.: extrinsic (fixed frame)
+    /// - Returns error if intrinsic and extrinsic are mixed (e.g. "XyZ").
+    pub fn from_string(seq: &str) -> Result<Self, String> {
+        let s = seq.trim();
+        if s.is_empty() || s.len() > 3 {
+            return Err(format!("Euler sequence must be 1-3 chars, got {:?}", seq));
+        }
+        let chars: Vec<char> = s.chars().collect();
+        let all_upper = chars.iter().all(|c| matches!(c, 'X' | 'Y' | 'Z'));
+        let all_lower = chars.iter().all(|c| matches!(c, 'x' | 'y' | 'z'));
+        if !all_upper && !all_lower {
+            return Err("Extrinsic and intrinsic rotations cannot be mixed in one sequence".to_string());
+        }
+        let normalized = if all_upper {
+            s.to_uppercase()
+        } else {
+            s.to_lowercase()
+        };
+        // Build canonical key: intrinsic_extrinsic (e.g. XYZ_zyx).
+        // Intrinsic = extrinsic reversed; so "XYZ" or "zyx" both yield "XYZ_zyx".
+        let rev: String = normalized.chars().rev().collect();
+        let key = if all_upper {
+            format!("{}_{}", normalized, rev.to_lowercase())
+        } else {
+            format!("{}_{}", rev.to_uppercase(), normalized)
+        };
+        match_euler_key!(key.as_str(), seq,
+            XYZ_zyx, XZY_yzx, YXZ_zxy, YZX_xzy, ZXY_yxz, ZYX_xyz,
+            XYX_yxy, XZX_zxz, YXY_xyx, YZY_zyz, ZXZ_xzx, ZYZ_yzy
+        )
+    }
 }
 
 /// Euler angles in radians. Angles are (a, b, c) corresponding to the three axes in `sequence`.
@@ -388,7 +436,7 @@ impl EulerAngles {
 }
 
 /// Default Euler sequence used by `From<RotationMatrix> for EulerAngles`.
-/// ZYX (intrinsic xyz) is common for roll-pitch-yaw / aerospace conventions.
+/// Intrinsic ZYX = extrinsic xyz; common for roll-pitch-yaw / aerospace.
 pub const DEFAULT_EULER_SEQUENCE: EulerSequence = EulerSequence::ZYX_xyz;
 
 impl From<RotationMatrix> for EulerAngles {
@@ -898,6 +946,29 @@ mod euler_tests {
             0.70710677,
         );
         assert_quaternion_near(&r.as_quaternion(), &expected, TOL);
+    }
+
+    #[test]
+    fn euler_from_scipy_seq() {
+        // Scipy: uppercase=intrinsic, lowercase=extrinsic. XYZ_zyx = intrinsic XYZ = extrinsic zyx.
+        assert_eq!(
+            EulerSequence::from_string("ZYX").unwrap(),
+            EulerSequence::ZYX_xyz
+        );
+        assert_eq!(
+            EulerSequence::from_string("xyz").unwrap(),
+            EulerSequence::ZYX_xyz
+        );
+        assert_eq!(
+            EulerSequence::from_string("XYZ").unwrap(),
+            EulerSequence::XYZ_zyx
+        );
+        assert_eq!(
+            EulerSequence::from_string("zyx").unwrap(),
+            EulerSequence::XYZ_zyx
+        );
+        assert!(EulerSequence::from_string("XyZ").is_err());
+        assert!(EulerSequence::from_string("").is_err());
     }
 
     #[test]
