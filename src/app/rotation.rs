@@ -990,5 +990,172 @@ mod euler_tests {
     }
 }
 
+/// Tests rotation conversions against scipy-generated reference data.
 #[cfg(test)]
-include!("rotation_tests_generated.rs");
+mod scipy_tests {
+    use super::*;
+    use serde::Deserialize;
+
+    const TOL: f32 = 1e-5;
+
+    #[derive(Deserialize)]
+    struct ScipyTestCase {
+        name: String,
+        quaternion: [f64; 4],
+        rotation_matrix: [[f64; 3]; 3],
+        axis_angle: [f64; 4],
+        rotation_vector: [f64; 3],
+        euler_angles: std::collections::HashMap<String, [f64; 3]>,
+    }
+
+    #[derive(Deserialize)]
+    struct ScipyTestCases {
+        test_cases: Vec<ScipyTestCase>,
+    }
+
+    fn assert_quat_near(
+        actual: &Quaternion,
+        expected: &Quaternion,
+        tol: f32,
+        case_name: &str,
+        representation: &str,
+    ) {
+        let q_ok = (actual.w - expected.w).abs() <= tol && (actual.x - expected.x).abs() <= tol
+            && (actual.y - expected.y).abs() <= tol && (actual.z - expected.z).abs() <= tol;
+        let dual_ok = (actual.w + expected.w).abs() <= tol && (actual.x + expected.x).abs() <= tol
+            && (actual.y + expected.y).abs() <= tol && (actual.z + expected.z).abs() <= tol;
+        assert!(
+            q_ok || dual_ok,
+            "FAILED: test_case=\"{}\" representation=\"{}\"\n  actual quaternion:   {:?}\n  expected quaternion: {:?}\n  (q·q' vs -q·q' dual both exceeded tol={})",
+            case_name,
+            representation,
+            actual,
+            expected,
+            tol
+        );
+    }
+
+    fn euler_seq_from_key(key: &str) -> Option<EulerSequence> {
+        EulerSequence::from_string(key).ok()
+    }
+
+    #[test]
+    fn scipy_test_cases_quaternion_matrix_axis_angle_rotation_vector() {
+        let json = include_str!("../../tests/scipy_test_cases.json");
+        let data: ScipyTestCases = serde_json::from_str(json)
+            .expect("Failed to parse scipy_test_cases.json");
+
+        for tc in &data.test_cases {
+            let q_ref = Quaternion::new(
+                tc.quaternion[0] as f32,
+                tc.quaternion[1] as f32,
+                tc.quaternion[2] as f32,
+                tc.quaternion[3] as f32,
+            );
+
+            // From quaternion
+            let r_quat = Rotation::from(q_ref);
+            assert_quat_near(
+                &r_quat.as_quaternion(),
+                &q_ref,
+                TOL,
+                &tc.name,
+                "quaternion",
+            );
+
+            // From rotation matrix
+            let mat = RotationMatrix([
+                [
+                    tc.rotation_matrix[0][0] as f32,
+                    tc.rotation_matrix[0][1] as f32,
+                    tc.rotation_matrix[0][2] as f32,
+                ],
+                [
+                    tc.rotation_matrix[1][0] as f32,
+                    tc.rotation_matrix[1][1] as f32,
+                    tc.rotation_matrix[1][2] as f32,
+                ],
+                [
+                    tc.rotation_matrix[2][0] as f32,
+                    tc.rotation_matrix[2][1] as f32,
+                    tc.rotation_matrix[2][2] as f32,
+                ],
+            ]);
+            let r_mat = Rotation::from(mat);
+            assert_quat_near(
+                &r_mat.as_quaternion(),
+                &q_ref,
+                TOL,
+                &tc.name,
+                "rotation_matrix",
+            );
+
+            // From axis-angle [x, y, z, angle]
+            let aa = AxisAngle::new(
+                tc.axis_angle[0] as f32,
+                tc.axis_angle[1] as f32,
+                tc.axis_angle[2] as f32,
+                tc.axis_angle[3] as f32,
+            );
+            let r_aa = Rotation::from(aa);
+            assert_quat_near(
+                &r_aa.as_quaternion(),
+                &q_ref,
+                TOL,
+                &tc.name,
+                "axis_angle",
+            );
+
+            // From rotation vector
+            let rv = RotationVector::new(
+                tc.rotation_vector[0] as f32,
+                tc.rotation_vector[1] as f32,
+                tc.rotation_vector[2] as f32,
+            );
+            let r_rv = Rotation::from(rv);
+            assert_quat_near(
+                &r_rv.as_quaternion(),
+                &q_ref,
+                TOL,
+                &tc.name,
+                "rotation_vector",
+            );
+        }
+    }
+
+    #[test]
+    fn scipy_test_cases_euler_angles() {
+        let json = include_str!("../../tests/scipy_test_cases.json");
+        let data: ScipyTestCases = serde_json::from_str(json)
+            .expect("Failed to parse scipy_test_cases.json");
+
+        for tc in &data.test_cases {
+            let q_ref = Quaternion::new(
+                tc.quaternion[0] as f32,
+                tc.quaternion[1] as f32,
+                tc.quaternion[2] as f32,
+                tc.quaternion[3] as f32,
+            );
+
+            for (seq_key, angles) in &tc.euler_angles {
+                if let Some(seq) = euler_seq_from_key(seq_key) {
+                    let euler = EulerAngles::new(
+                        angles[0] as f32,
+                        angles[1] as f32,
+                        angles[2] as f32,
+                        seq,
+                    );
+                    let r_euler = Rotation::from(euler);
+                    let representation = format!("euler_angles[{}]", seq_key);
+                    assert_quat_near(
+                        &r_euler.as_quaternion(),
+                        &q_ref,
+                        TOL,
+                        &tc.name,
+                        &representation,
+                    );
+                }
+            }
+        }
+    }
+}
