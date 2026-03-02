@@ -362,6 +362,35 @@ fn edge_transform(p1: three_d::Vec3, p2: three_d::Vec3) -> three_d::Mat4 {
         * Mat4::from_nonuniform_scale((p2 - p1).magnitude(), 1.0, 1.0)
 }
 
+/// Base instance transforms for axes: X (identity), Y (rotate 90° about Z), Z (rotate -90° about Y).
+fn axes_base_instances() -> three_d::Instances {
+    use three_d::*;
+    Instances {
+        transformations: vec![
+            Mat4::identity(),
+            Mat4::from_angle_z(degrees(90.0)),
+            Mat4::from_angle_y(degrees(-90.0)),
+        ],
+        texture_transformations: None,
+        colors: Some(vec![Srgba::RED, Srgba::GREEN, Srgba::BLUE]),
+    }
+}
+
+/// Build Instances for body-fixed axes: rot_mat * base_transform for each axis.
+fn body_axes_instances(rot_mat: three_d::Mat4) -> three_d::Instances {
+    use three_d::*;
+    let base = axes_base_instances();
+    Instances {
+        transformations: base
+            .transformations
+            .iter()
+            .map(|t| rot_mat * *t)
+            .collect(),
+        texture_transformations: base.texture_transformations,
+        colors: base.colors,
+    }
+}
+
 /// Converts our Rotation to a three-d Mat4 (4x4 rotation matrix, column-major).
 fn rotation_to_mat4(rot: &Rotation) -> three_d::Mat4 {
     use three_d::*;
@@ -539,6 +568,7 @@ fn run_three_d(
         let mut control = OrbitControl::new(camera.target(), 1.0, 100.0);
 
         let axes = Axes::new(&gl, 0.1, 2.0);
+        let mut axes_body = Axes::new(&gl, 0.08, 1.5);
         let light0 = DirectionalLight::new(&gl, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
         let light1 = DirectionalLight::new(&gl, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
 
@@ -600,7 +630,10 @@ fn run_three_d(
                     match &mut mesh_objects {
                         Some((model_unrotated, model_rotated)) => {
                             let rot = rotation_for_renderer.borrow();
-                            model_rotated.geometry.set_transformation(rotation_to_mat4(&rot));
+                            let rot_mat = rotation_to_mat4(&rot);
+                            model_rotated.geometry.set_transformation(rot_mat);
+                            axes_body.geometry.set_transformation(Mat4::identity());
+                            axes_body.geometry.set_instances(&body_axes_instances(rot_mat));
                             frame_input
                                 .screen()
                                 .clear(ClearState::color_and_depth(0.051, 0.051, 0.094, 1.0, 1.0))
@@ -609,15 +642,24 @@ fn run_three_d(
                                     (&*model_unrotated)
                                         .into_iter()
                                         .chain(&*model_rotated)
-                                        .chain(&axes),
+                                        .chain(&axes)
+                                        .chain(&axes_body),
                                     &[&light0, &light1],
                                 );
                         }
                         None => {
+                            let rot = rotation_for_renderer.borrow();
+                            let rot_mat = rotation_to_mat4(&rot);
+                            axes_body.geometry.set_transformation(Mat4::identity());
+                            axes_body.geometry.set_instances(&body_axes_instances(rot_mat));
                             frame_input
                                 .screen()
                                 .clear(ClearState::color_and_depth(0.051, 0.051, 0.094, 1.0, 1.0))
-                                .render(&camera, &axes, &[&light0, &light1]);
+                                .render(
+                                    &camera,
+                                    (&axes).into_iter().chain(&axes_body),
+                                    &[&light0, &light1],
+                                );
                         }
                     }
 
