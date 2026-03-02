@@ -178,6 +178,13 @@ impl EulerAngles {
         )
     }
 
+    /// Convert to the same rotation expressed in a different Euler sequence.
+    /// Uses the rotation matrix as an intermediate representation to preserve the rotation.
+    pub fn as_sequence(&self, new_sequence: EulerSequence) -> Self {
+        let matrix = RotationMatrix::from(*self);
+        Self::from_rotation_matrix(matrix, new_sequence)
+    }
+
     /// Extract Euler angles from a rotation matrix in the given sequence.
     /// Handles gimbal lock by setting the third angle to zero at singularities.
     pub fn from_rotation_matrix(matrix: RotationMatrix, sequence: EulerSequence) -> Self {
