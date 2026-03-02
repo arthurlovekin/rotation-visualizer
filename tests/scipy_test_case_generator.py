@@ -281,18 +281,6 @@ def generate_all_test_cases() -> list[dict]:
     return cases
 
 
-def _seq_to_rust(seq: str) -> str:
-    """Map scipy intrinsic sequence to Rust EulerSequence variant (extrinsic_intrinsic)."""
-    return {
-        "XYZ": "ZYX_xyz",
-        "XZY": "YZX_xzy",
-        "YXZ": "ZXY_yxz",
-        "YZX": "XZY_yzx",
-        "ZXY": "YXZ_zxy",
-        "ZYX": "XYZ_zyx",
-    }[seq]
-
-
 def _rust_case(c: dict) -> str:
     """Generate Rust code for a single test case."""
     q = c["quaternion"]
@@ -346,13 +334,12 @@ def _rust_case(c: dict) -> str:
         e = c["euler"]
         seq = e["seq"]
         a, b, c = e["angles_rad"]
-        seq_rust = f"EulerSequence::{_seq_to_rust(seq)}"
         lines.extend([
             "",
             f"        // From EulerAngles -> Rotation (sequence {seq})",
             f"        let euler = EulerAngles::new(",
             f"            {_rust_f32_literal(a)}, {_rust_f32_literal(b)}, {_rust_f32_literal(c)},",
-            f"            {seq_rust},",
+            f'            EulerSequence::from_string("{seq}").unwrap(),',
             f"        );",
             f"        let r = Rotation::from(euler);",
             f"        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);",
