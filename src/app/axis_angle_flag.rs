@@ -8,6 +8,7 @@ use crate::app::rotation::AxisAngle;
 const POLE_LENGTH: f32 = 2.0;
 const POLE_RADIUS: f32 = 0.02;
 const FLAG_SIZE: f32 = 0.5;
+const FLAG_BASE_WIDTH: f32 = 0.15;
 
 /// Axis-angle flag: pole along axis, triangular flag indicates the angle.
 /// Create with `new`, call `update` each frame, and add `pole()` and `flag()` to the render list.
@@ -81,9 +82,9 @@ impl AxisAngleFlag {
 /// CpuMesh for the triangular flag. Base geometry: pole along +X, flag in XY plane with apex at +Y.
 fn triangle_mesh() -> CpuMesh {
     let positions = vec![
-        vec3(POLE_LENGTH, 0.0, 0.0),                    // tip (attaches to pole)
-        vec3(POLE_LENGTH - 0.02, 0.02, 0.0),            // base corner
-        vec3(POLE_LENGTH, FLAG_SIZE, 0.0),               // apex
+        vec3(POLE_LENGTH, 0.0, 0.0),                         // base corner (at pole tip)
+        vec3(POLE_LENGTH - FLAG_BASE_WIDTH, 0.0, 0.0),      // base corner (back along pole)
+        vec3(POLE_LENGTH, FLAG_SIZE, 0.0),                  // apex
     ];
     let normals = vec![
         vec3(0.0, 0.0, 1.0),
