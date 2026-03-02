@@ -720,22 +720,20 @@ fn rot_z(a: f32) -> RotationMatrix {
 
 impl From<EulerAngles> for RotationMatrix {
     fn from(e: EulerAngles) -> Self {
-        let (ra, rb, rc) = (e.a, e.b, e.c);
-        let (r1, r2, r3) = match e.sequence {
-            EulerSequence::XYZ_zyx => (rot_z(ra), rot_y(rb), rot_x(rc)),
-            EulerSequence::XZY_yzx => (rot_y(ra), rot_z(rb), rot_x(rc)),
-            EulerSequence::YXZ_zxy => (rot_z(ra), rot_x(rb), rot_y(rc)),
-            EulerSequence::YZX_xzy => (rot_x(ra), rot_z(rb), rot_y(rc)),
-            EulerSequence::ZXY_yxz => (rot_y(ra), rot_x(rb), rot_z(rc)),
-            EulerSequence::ZYX_xyz => (rot_x(ra), rot_y(rb), rot_z(rc)),
-            EulerSequence::XYX_yxy => (rot_y(ra), rot_x(rb), rot_y(rc)),
-            EulerSequence::XZX_zxz => (rot_z(ra), rot_x(rb), rot_z(rc)),
-            EulerSequence::YXY_xyx => (rot_x(ra), rot_y(rb), rot_x(rc)),
-            EulerSequence::YZY_zyz => (rot_z(ra), rot_y(rb), rot_z(rc)),
-            EulerSequence::ZXZ_xzx => (rot_x(ra), rot_z(rb), rot_x(rc)),
-            EulerSequence::ZYZ_yzy => (rot_y(ra), rot_z(rb), rot_y(rc)),
-        };
-        r1 * r2 * r3
+        match e.sequence {
+            EulerSequence::XYZ_zyx => rot_z(e.a) * rot_y(e.b) * rot_x(e.c),
+            EulerSequence::XZY_yzx => rot_y(e.a) * rot_z(e.b) * rot_x(e.c),
+            EulerSequence::YXZ_zxy => rot_z(e.a) * rot_x(e.b) * rot_y(e.c),
+            EulerSequence::YZX_xzy => rot_x(e.a) * rot_z(e.b) * rot_y(e.c),
+            EulerSequence::ZXY_yxz => rot_y(e.a) * rot_x(e.b) * rot_z(e.c),
+            EulerSequence::ZYX_xyz => rot_x(e.a) * rot_y(e.b) * rot_z(e.c),
+            EulerSequence::XYX_yxy => rot_y(e.a) * rot_x(e.b) * rot_y(e.c),
+            EulerSequence::XZX_zxz => rot_z(e.a) * rot_x(e.b) * rot_z(e.c),
+            EulerSequence::YXY_xyx => rot_x(e.a) * rot_y(e.b) * rot_x(e.c),
+            EulerSequence::YZY_zyz => rot_z(e.a) * rot_y(e.b) * rot_z(e.c),
+            EulerSequence::ZXZ_xzx => rot_x(e.a) * rot_z(e.b) * rot_x(e.c),
+            EulerSequence::ZYZ_yzy => rot_y(e.a) * rot_z(e.b) * rot_y(e.c),
+        }
     }
 }
 
