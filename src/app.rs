@@ -27,139 +27,91 @@ use slider_widget::{CustomSliderConfig, SliderMarker};
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
 impl CustomSliderConfig {
-    /// Angle slider [0, 2π] with 0, π, 2π markers.
+    fn with_markers(min: f64, max: f64, markers: &[(f64, &str)]) -> Self {
+        Self {
+            min,
+            max,
+            markers: markers
+                .iter()
+                .map(|(v, l)| SliderMarker { value: *v, label: l.to_string() })
+                .collect(),
+        }
+    }
+
     pub fn angle_2pi() -> Self {
         let pi = std::f64::consts::PI;
-        Self {
-            min: 0.0,
-            max: 2.0 * pi,
-            markers: vec![
-                SliderMarker { value: 0.0, label: "0".to_string() },
-                SliderMarker { value: pi, label: "π".to_string() },
-                SliderMarker { value: 2.0 * pi, label: "2π".to_string() },
-            ],
-        }
+        Self::with_markers(0.0, 2.0 * pi, &[(0.0, "0"), (pi, "π"), (2.0 * pi, "2π")])
     }
 
-    /// Angle slider [0, π] with 0, π/2, π markers (for axis-angle).
     pub fn angle_0_pi() -> Self {
         let pi = std::f64::consts::PI;
-        Self {
-            min: 0.0,
-            max: pi,
-            markers: vec![
-                SliderMarker { value: 0.0, label: "0".to_string() },
-                SliderMarker { value: pi / 2.0, label: "π/2".to_string() },
-                SliderMarker { value: pi, label: "π".to_string() },
-            ],
-        }
+        Self::with_markers(0.0, pi, &[(0.0, "0"), (pi / 2.0, "π/2"), (pi, "π")])
     }
 
-    /// Angle slider [-π, 2π] with markers. Allows unsimplified values; simplified form [0, π] shown as tick.
     pub fn angle_rad_neg_pi_2pi() -> Self {
         let pi = std::f64::consts::PI;
-        Self {
-            min: -pi,
-            max: 2.0 * pi,
-            markers: vec![
-                SliderMarker { value: -pi, label: "-π".to_string() },
-                SliderMarker { value: 0.0, label: "0".to_string() },
-                SliderMarker { value: pi / 2.0, label: "π/2".to_string() },
-                SliderMarker { value: pi, label: "π".to_string() },
-                SliderMarker { value: 2.0 * pi, label: "2π".to_string() },
-            ],
-        }
+        Self::with_markers(
+            -pi,
+            2.0 * pi,
+            &[(-pi, "-π"), (0.0, "0"), (pi / 2.0, "π/2"), (pi, "π"), (2.0 * pi, "2π")],
+        )
     }
 
-    /// Angle slider [-180°, 360°] with markers. Allows unsimplified values; simplified form [0°, 180°] shown as tick.
     pub fn angle_deg_neg180_360() -> Self {
-        Self {
-            min: -180.0,
-            max: 360.0,
-            markers: vec![
-                SliderMarker { value: -180.0, label: "-180°".to_string() },
-                SliderMarker { value: 0.0, label: "0°".to_string() },
-                SliderMarker { value: 90.0, label: "90°".to_string() },
-                SliderMarker { value: 180.0, label: "180°".to_string() },
-                SliderMarker { value: 360.0, label: "360°".to_string() },
-            ],
-        }
+        Self::with_markers(
+            -180.0,
+            360.0,
+            &[(-180.0, "-180°"), (0.0, "0°"), (90.0, "90°"), (180.0, "180°"), (360.0, "360°")],
+        )
     }
 
-    /// Quaternion component slider [-1, 1].
     pub fn quaternion_component() -> Self {
-        Self {
-            min: -1.0,
-            max: 1.0,
-            markers: vec![
-                SliderMarker { value: -1.0, label: "-1".to_string() },
-                SliderMarker { value: 0.0, label: "0".to_string() },
-                SliderMarker { value: 1.0, label: "1".to_string() },
-            ],
-        }
+        Self::with_markers(-1.0, 1.0, &[(-1.0, "-1"), (0.0, "0"), (1.0, "1")])
     }
 
-    /// Rotation vector component slider [-2π, 2π].
     pub fn rotation_vector_component() -> Self {
         let pi = std::f64::consts::PI;
-        Self {
-            min: -2.0 * pi,
-            max: 2.0 * pi,
-            markers: vec![
-                SliderMarker { value: -2.0 * pi, label: "-2π".to_string() },
-                SliderMarker { value: -pi, label: "-π".to_string() },
-                SliderMarker { value: -pi / 2.0, label: "-π/2".to_string() },
-                SliderMarker { value: 0.0, label: "0".to_string() },
-                SliderMarker { value: pi / 2.0, label: "π/2".to_string() },
-                SliderMarker { value: pi, label: "π".to_string() },
-                SliderMarker { value: 2.0 * pi, label: "2π".to_string() },
+        Self::with_markers(
+            -2.0 * pi,
+            2.0 * pi,
+            &[
+                (-2.0 * pi, "-2π"),
+                (-pi, "-π"),
+                (-pi / 2.0, "-π/2"),
+                (0.0, "0"),
+                (pi / 2.0, "π/2"),
+                (pi, "π"),
+                (2.0 * pi, "2π"),
             ],
-        }
+        )
     }
 
-    /// Rotation vector component slider [-360°, 360°] (norm as angle in degrees).
     pub fn rotation_vector_component_degrees() -> Self {
-        Self {
-            min: -360.0,
-            max: 360.0,
-            markers: vec![
-                SliderMarker { value: -360.0, label: "-360°".to_string() },
-                SliderMarker { value: -180.0, label: "-180°".to_string() },
-                SliderMarker { value: -90.0, label: "-90°".to_string() },
-                SliderMarker { value: 0.0, label: "0°".to_string() },
-                SliderMarker { value: 90.0, label: "90°".to_string() },
-                SliderMarker { value: 180.0, label: "180°".to_string() },
-                SliderMarker { value: 360.0, label: "360°".to_string() },
+        Self::with_markers(
+            -360.0,
+            360.0,
+            &[
+                (-360.0, "-360°"),
+                (-180.0, "-180°"),
+                (-90.0, "-90°"),
+                (0.0, "0°"),
+                (90.0, "90°"),
+                (180.0, "180°"),
+                (360.0, "360°"),
             ],
-        }
+        )
     }
 
-    /// Angle slider [0, 360] degrees with 0°, 90°, 180°, 270°, 360° markers.
     pub fn angle_degrees() -> Self {
-        Self {
-            min: 0.0,
-            max: 360.0,
-            markers: vec![
-                SliderMarker { value: 0.0, label: "0°".to_string() },
-                SliderMarker { value: 90.0, label: "90°".to_string() },
-                SliderMarker { value: 180.0, label: "180°".to_string() },
-                SliderMarker { value: 270.0, label: "270°".to_string() },
-                SliderMarker { value: 360.0, label: "360°".to_string() },
-            ],
-        }
+        Self::with_markers(
+            0.0,
+            360.0,
+            &[(0.0, "0°"), (90.0, "90°"), (180.0, "180°"), (270.0, "270°"), (360.0, "360°")],
+        )
     }
 
-    /// Angle slider [0, 180] degrees with 0°, 90°, 180° markers (for axis-angle).
     pub fn angle_degrees_0_180() -> Self {
-        Self {
-            min: 0.0,
-            max: 180.0,
-            markers: vec![
-                SliderMarker { value: 0.0, label: "0°".to_string() },
-                SliderMarker { value: 90.0, label: "90°".to_string() },
-                SliderMarker { value: 180.0, label: "180°".to_string() },
-            ],
-        }
+        Self::with_markers(0.0, 180.0, &[(0.0, "0°"), (90.0, "90°"), (180.0, "180°")])
     }
 }
 
@@ -283,13 +235,9 @@ fn App(
 ) -> impl IntoView {
     let rotation = RwSignal::new(Rotation::default());
     let format = RwSignal::new(VectorFormat::default());
-    let matrix_format = RwSignal::new(MatrixFormat {
-        vector_format: VectorFormat::default(),
-        row_delimiter: '\n',
-        bracket_type: '[',
-        prefix: String::new(),
-        suffix: String::new(),
-    });
+    let mut matrix_fmt = MatrixFormat::default();
+    matrix_fmt.row_delimiter = '\n';
+    let matrix_format = RwSignal::new(matrix_fmt);
     let active_input = RwSignal::new(ActiveInput::None);
 
     // Sync rotation to the three-d renderer and request redraw when it changes
@@ -627,41 +575,27 @@ fn run_three_d(
                     camera.set_viewport(canvas_viewport);
                     control.handle_events(&mut camera, &mut frame_input.events);
 
-                    match &mut mesh_objects {
+                    let rot = rotation_for_renderer.borrow();
+                    let rot_mat = rotation_to_mat4(&rot);
+                    axes_body.geometry.set_transformation(Mat4::identity());
+                    axes_body.geometry.set_instances(&body_axes_instances(rot_mat));
+
+                    let objects: Vec<&dyn Object> = match &mut mesh_objects {
                         Some((model_unrotated, model_rotated)) => {
-                            let rot = rotation_for_renderer.borrow();
-                            let rot_mat = rotation_to_mat4(&rot);
                             model_rotated.geometry.set_transformation(rot_mat);
-                            axes_body.geometry.set_transformation(Mat4::identity());
-                            axes_body.geometry.set_instances(&body_axes_instances(rot_mat));
-                            frame_input
-                                .screen()
-                                .clear(ClearState::color_and_depth(0.051, 0.051, 0.094, 1.0, 1.0))
-                                .render(
-                                    &camera,
-                                    (&*model_unrotated)
-                                        .into_iter()
-                                        .chain(&*model_rotated)
-                                        .chain(&axes)
-                                        .chain(&axes_body),
-                                    &[&light0, &light1],
-                                );
+                            vec![
+                                &*model_unrotated,
+                                &*model_rotated,
+                                &axes,
+                                &axes_body,
+                            ]
                         }
-                        None => {
-                            let rot = rotation_for_renderer.borrow();
-                            let rot_mat = rotation_to_mat4(&rot);
-                            axes_body.geometry.set_transformation(Mat4::identity());
-                            axes_body.geometry.set_instances(&body_axes_instances(rot_mat));
-                            frame_input
-                                .screen()
-                                .clear(ClearState::color_and_depth(0.051, 0.051, 0.094, 1.0, 1.0))
-                                .render(
-                                    &camera,
-                                    (&axes).into_iter().chain(&axes_body),
-                                    &[&light0, &light1],
-                                );
-                        }
-                    }
+                        None => vec![&axes, &axes_body],
+                    };
+                    frame_input
+                        .screen()
+                        .clear(ClearState::color_and_depth(0.051, 0.051, 0.094, 1.0, 1.0))
+                        .render(&camera, objects, &[&light0, &light1]);
 
                     if option_env!("THREE_D_SCREENSHOT").is_none() {
                         let _ = gl.swap_buffers();
@@ -699,29 +633,24 @@ fn run_three_d(_rotation_for_renderer: Rc<RefCell<Rotation>>) {
 }
 
 pub fn main() {
+    let rotation_for_renderer = Rc::new(RefCell::new(Rotation::default()));
+    let leptos_root = leptos::tachys::dom::document()
+        .get_element_by_id("leptos-app")
+        .expect("should find #leptos-app element")
+        .unchecked_into::<leptos::web_sys::HtmlElement>();
+
     #[cfg(target_arch = "wasm32")]
     {
         use winit::event_loop::EventLoop;
 
-        let rotation_for_renderer = Rc::new(RefCell::new(Rotation::default()));
-        let rotation_for_app = rotation_for_renderer.clone();
-
         let event_loop = EventLoop::new();
         let redraw_proxy = event_loop.create_proxy();
-        let request_redraw: RequestRedraw = Rc::new(move || {
-            let _ = redraw_proxy.send_event(());
-        });
+        let request_redraw: RequestRedraw = Rc::new(move || { let _ = redraw_proxy.send_event(()); });
+        let rotation_for_app = rotation_for_renderer.clone();
         let request_redraw_for_app = request_redraw.clone();
 
-        let leptos_root = leptos::tachys::dom::document()
-            .get_element_by_id("leptos-app")
-            .expect("should find #leptos-app element")
-            .unchecked_into::<leptos::web_sys::HtmlElement>();
-
         mount_to(leptos_root, move || {
-            view! {
-                <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() />
-            }
+            view! { <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() /> }
         })
         .forget();
 
@@ -730,18 +659,9 @@ pub fn main() {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let rotation_for_renderer = Rc::new(RefCell::new(Rotation::default()));
         let rotation_for_app = rotation_for_renderer.clone();
-
-        let leptos_root = leptos::tachys::dom::document()
-            .get_element_by_id("leptos-app")
-            .expect("should find #leptos-app element")
-            .unchecked_into::<leptos::web_sys::HtmlElement>();
-
         mount_to(leptos_root, move || {
-            view! {
-                <App rotation_for_renderer=rotation_for_app.clone() />
-            }
+            view! { <App rotation_for_renderer=rotation_for_app.clone() /> }
         })
         .forget();
 
