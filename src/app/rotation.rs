@@ -392,6 +392,14 @@ impl From<RotationMatrix> for EulerAngles {
     }
 }
 
+impl From<Quaternion> for EulerAngles {
+    /// Convert quaternion to Euler angles using [`DEFAULT_EULER_SEQUENCE`] (roll-pitch-yaw).
+    /// Use [`EulerAngles::from_rotation_matrix`] with a rotation matrix to specify a different sequence.
+    fn from(quat: Quaternion) -> Self {
+        EulerAngles::from(RotationMatrix::from(quat))
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct AxisAngle {
     pub x: f32,
