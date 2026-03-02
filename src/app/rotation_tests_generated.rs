@@ -119,6 +119,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_near_zero_1e_6() {
         const TOL: f32 = 1e-05_f32;
@@ -158,6 +159,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_near_zero_1e_7() {
@@ -199,6 +201,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_near_zero_f32_eps() {
         const TOL: f32 = 1e-05_f32;
@@ -238,6 +241,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_angle_pi_over_4() {
@@ -279,6 +283,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_angle_pi_over_2() {
         const TOL: f32 = 1e-05_f32;
@@ -318,6 +323,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_angle_pi() {
@@ -359,6 +365,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_angle_3pi_over_2() {
         const TOL: f32 = 1e-05_f32;
@@ -398,6 +405,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_angle_2pi_minus_eps() {
@@ -439,6 +447,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_degrees_45() {
         const TOL: f32 = 1e-05_f32;
@@ -478,6 +487,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_degrees_90() {
@@ -519,6 +529,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_degrees_180() {
         const TOL: f32 = 1e-05_f32;
@@ -558,6 +569,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_degrees_270() {
@@ -599,6 +611,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_degrees_360() {
         const TOL: f32 = 1e-05_f32;
@@ -638,6 +651,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_axis_y() {
@@ -679,6 +693,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_axis_z() {
         const TOL: f32 = 1e-05_f32;
@@ -718,6 +733,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_axis_xy() {
@@ -759,6 +775,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_axis_xyz() {
         const TOL: f32 = 1e-05_f32;
@@ -798,6 +815,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_axis_arbitrary() {
@@ -839,6 +857,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_quat_w_near_1() {
         const TOL: f32 = 1e-05_f32;
@@ -878,6 +897,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_quat_w_zero_180deg_x() {
@@ -919,6 +939,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_quat_w_near_minus_1() {
         const TOL: f32 = 1e-05_f32;
@@ -958,6 +979,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_matrix_90deg_z() {
@@ -999,25 +1021,26 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
-    fn scipy_euler_xyz_30_45_60() {
+    fn scipy_euler_zyx_30_45_60() {
         const TOL: f32 = 1e-05_f32;
         let expected_quat = Quaternion::new(
-            0.8223631978034973_f32, 0.0222600270062685_f32, 
-            0.43967974185943604_f32, 0.36042341589927673_f32
+            0.8223631978034973_f32, 0.36042341589927673_f32, 
+            0.43967974185943604_f32, 0.0222600270062685_f32
         );
         let expected_aa = AxisAngle::new(
-            0.039123862981796265_f32, 0.7727739810943604_f32, 
-            0.6334743499755859_f32, 1.2104884386062622_f32
+            0.6334743499755859_f32, 0.7727739810943604_f32, 
+            0.039123862981796265_f32, 1.2104884386062622_f32
         );
         let expected_rv = RotationVector::new(
-            0.047358982264995575_f32, 0.9354339241981506_f32, 
-            0.766813337802887_f32
+            0.766813337802887_f32, 0.9354339241981506_f32, 
+            0.047358982264995575_f32
         );
         let expected_mat = RotationMatrix([
-            [0.3535533845424652_f32, -0.5732232928276062_f32, 0.7391989231109619_f32],
-            [0.6123724579811096_f32, 0.7391989231109619_f32, 0.280330091714859_f32],
-            [-0.7071067690849304_f32, 0.3535533845424652_f32, 0.6123724579811096_f32],
+            [0.6123724579811096_f32, 0.280330091714859_f32, 0.7391989231109619_f32],
+            [0.3535533845424652_f32, 0.7391989231109619_f32, -0.5732232928276062_f32],
+            [-0.7071067690849304_f32, 0.6123724579811096_f32, 0.3535533845424652_f32],
         ]);
 
         // From Quaternion -> all others
@@ -1037,90 +1060,19 @@ mod scipy_tests {
         // From RotationMatrix -> Quaternion
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
-    }
 
-    #[test]
-    fn scipy_euler_xyz_90_0_0() {
-        const TOL: f32 = 1e-05_f32;
-        let expected_quat = Quaternion::new(
-            0.7071067690849304_f32, 0.7071067690849304_f32, 
-            0.0_f32, 0.0_f32
+        // From EulerAngles -> Rotation (sequence ZYX)
+        let euler = EulerAngles::new(
+            0.5235987901687622_f32, 0.7853981852531433_f32, 1.0471975803375244_f32,
+            EulerSequence::XYZ_zyx,
         );
-        let expected_aa = AxisAngle::new(
-            1.0_f32, 0.0_f32, 
-            0.0_f32, 1.5707963705062866_f32
-        );
-        let expected_rv = RotationVector::new(
-            1.5707963705062866_f32, 0.0_f32, 
-            0.0_f32
-        );
-        let expected_mat = RotationMatrix([
-            [1.0_f32, 0.0_f32, 0.0_f32],
-            [0.0_f32, 2.220446049250313e-16_f32, -1.0_f32],
-            [0.0_f32, 1.0_f32, 2.220446049250313e-16_f32],
-        ]);
-
-        // From Quaternion -> all others
-        let r = Rotation::from(expected_quat);
-        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
-        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
-        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
-
-        // From AxisAngle -> Quaternion
-        let r = Rotation::from(expected_aa);
-        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
-
-        // From RotationVector -> Quaternion
-        let r = Rotation::from(expected_rv);
-        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
-
-        // From RotationMatrix -> Quaternion
-        let r = Rotation::from(expected_mat);
+        let r = Rotation::from(euler);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
-    #[test]
-    fn scipy_euler_xyz_0_90_0() {
-        const TOL: f32 = 1e-05_f32;
-        let expected_quat = Quaternion::new(
-            0.7071067690849304_f32, 0.0_f32, 
-            0.7071067690849304_f32, 0.0_f32
-        );
-        let expected_aa = AxisAngle::new(
-            0.0_f32, 1.0_f32, 
-            0.0_f32, 1.5707963705062866_f32
-        );
-        let expected_rv = RotationVector::new(
-            0.0_f32, 1.5707963705062866_f32, 
-            0.0_f32
-        );
-        let expected_mat = RotationMatrix([
-            [2.220446049250313e-16_f32, 0.0_f32, 1.0_f32],
-            [0.0_f32, 1.0_f32, 0.0_f32],
-            [-1.0_f32, 0.0_f32, 2.220446049250313e-16_f32],
-        ]);
-
-        // From Quaternion -> all others
-        let r = Rotation::from(expected_quat);
-        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
-        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
-        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
-
-        // From AxisAngle -> Quaternion
-        let r = Rotation::from(expected_aa);
-        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
-
-        // From RotationVector -> Quaternion
-        let r = Rotation::from(expected_rv);
-        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
-
-        // From RotationMatrix -> Quaternion
-        let r = Rotation::from(expected_mat);
-        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
-    }
 
     #[test]
-    fn scipy_euler_xyz_0_0_90() {
+    fn scipy_euler_zyx_90_0_0() {
         const TOL: f32 = 1e-05_f32;
         let expected_quat = Quaternion::new(
             0.7071067690849304_f32, 0.0_f32, 
@@ -1157,27 +1109,36 @@ mod scipy_tests {
         // From RotationMatrix -> Quaternion
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence ZYX)
+        let euler = EulerAngles::new(
+            1.5707963705062866_f32, 0.0_f32, 0.0_f32,
+            EulerSequence::XYZ_zyx,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
-    fn scipy_euler_xyz_gimbal_like() {
+    fn scipy_euler_zyx_0_90_0() {
         const TOL: f32 = 1e-05_f32;
         let expected_quat = Quaternion::new(
-            0.5_f32, 0.5_f32, 
-            0.5_f32, -0.5_f32
+            0.7071067690849304_f32, 0.0_f32, 
+            0.7071067690849304_f32, 0.0_f32
         );
         let expected_aa = AxisAngle::new(
-            0.5773502588272095_f32, 0.5773502588272095_f32, 
-            -0.5773502588272095_f32, 2.094395160675049_f32
+            0.0_f32, 1.0_f32, 
+            0.0_f32, 1.5707963705062866_f32
         );
         let expected_rv = RotationVector::new(
-            1.2091996669769287_f32, 1.2091996669769287_f32, 
-            -1.2091996669769287_f32
+            0.0_f32, 1.5707963705062866_f32, 
+            0.0_f32
         );
         let expected_mat = RotationMatrix([
-            [2.220446049250313e-16_f32, 1.0_f32, 2.220446049250313e-16_f32],
-            [0.0_f32, 2.220446049250313e-16_f32, -1.0_f32],
-            [-1.0_f32, 2.220446049250313e-16_f32, 0.0_f32],
+            [2.220446049250313e-16_f32, 0.0_f32, 1.0_f32],
+            [0.0_f32, 1.0_f32, 0.0_f32],
+            [-1.0_f32, 0.0_f32, 2.220446049250313e-16_f32],
         ]);
 
         // From Quaternion -> all others
@@ -1197,7 +1158,408 @@ mod scipy_tests {
         // From RotationMatrix -> Quaternion
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence ZYX)
+        let euler = EulerAngles::new(
+            0.0_f32, 1.5707963705062866_f32, 0.0_f32,
+            EulerSequence::XYZ_zyx,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
+
+    #[test]
+    fn scipy_euler_zyx_0_0_90() {
+        const TOL: f32 = 1e-05_f32;
+        let expected_quat = Quaternion::new(
+            0.7071067690849304_f32, 0.7071067690849304_f32, 
+            0.0_f32, 0.0_f32
+        );
+        let expected_aa = AxisAngle::new(
+            1.0_f32, 0.0_f32, 
+            0.0_f32, 1.5707963705062866_f32
+        );
+        let expected_rv = RotationVector::new(
+            1.5707963705062866_f32, 0.0_f32, 
+            0.0_f32
+        );
+        let expected_mat = RotationMatrix([
+            [1.0_f32, 0.0_f32, 0.0_f32],
+            [0.0_f32, 2.220446049250313e-16_f32, -1.0_f32],
+            [0.0_f32, 1.0_f32, 2.220446049250313e-16_f32],
+        ]);
+
+        // From Quaternion -> all others
+        let r = Rotation::from(expected_quat);
+        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
+        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
+        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
+
+        // From AxisAngle -> Quaternion
+        let r = Rotation::from(expected_aa);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationVector -> Quaternion
+        let r = Rotation::from(expected_rv);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationMatrix -> Quaternion
+        let r = Rotation::from(expected_mat);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence ZYX)
+        let euler = EulerAngles::new(
+            0.0_f32, 0.0_f32, 1.5707963705062866_f32,
+            EulerSequence::XYZ_zyx,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+
+
+    #[test]
+    fn scipy_euler_zyx_gimbal_like() {
+        const TOL: f32 = 1e-05_f32;
+        let expected_quat = Quaternion::new(
+            0.5_f32, -0.5_f32, 
+            0.5_f32, 0.5_f32
+        );
+        let expected_aa = AxisAngle::new(
+            -0.5773502588272095_f32, 0.5773502588272095_f32, 
+            0.5773502588272095_f32, 2.094395160675049_f32
+        );
+        let expected_rv = RotationVector::new(
+            -1.2091996669769287_f32, 1.2091996669769287_f32, 
+            1.2091996669769287_f32
+        );
+        let expected_mat = RotationMatrix([
+            [0.0_f32, -1.0_f32, 2.220446049250313e-16_f32],
+            [2.220446049250313e-16_f32, 2.220446049250313e-16_f32, 1.0_f32],
+            [-1.0_f32, 0.0_f32, 2.220446049250313e-16_f32],
+        ]);
+
+        // From Quaternion -> all others
+        let r = Rotation::from(expected_quat);
+        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
+        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
+        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
+
+        // From AxisAngle -> Quaternion
+        let r = Rotation::from(expected_aa);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationVector -> Quaternion
+        let r = Rotation::from(expected_rv);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationMatrix -> Quaternion
+        let r = Rotation::from(expected_mat);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence ZYX)
+        let euler = EulerAngles::new(
+            1.5707963705062866_f32, 1.5707963705062866_f32, 0.0_f32,
+            EulerSequence::XYZ_zyx,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+
+
+    #[test]
+    fn scipy_euler_seq_xyz() {
+        const TOL: f32 = 1e-05_f32;
+        let expected_quat = Quaternion::new(
+            0.9495553970336914_f32, 0.25785890221595764_f32, 
+            0.11964726448059082_f32, 0.1324305534362793_f32
+        );
+        let expected_aa = AxisAngle::new(
+            0.8222559094429016_f32, 0.3815291225910187_f32, 
+            0.42229220271110535_f32, 0.6379624009132385_f32
+        );
+        let expected_rv = RotationVector::new(
+            0.5245683789253235_f32, 0.24340122938156128_f32, 
+            0.2694065570831299_f32
+        );
+        let expected_mat = RotationMatrix([
+            [0.936293363571167_f32, -0.1897960603237152_f32, 0.29552021622657776_f32],
+            [0.31320449709892273_f32, 0.8319419026374817_f32, -0.4580127000808716_f32],
+            [-0.15892662107944489_f32, 0.5213925242424011_f32, 0.8383866548538208_f32],
+        ]);
+
+        // From Quaternion -> all others
+        let r = Rotation::from(expected_quat);
+        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
+        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
+        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
+
+        // From AxisAngle -> Quaternion
+        let r = Rotation::from(expected_aa);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationVector -> Quaternion
+        let r = Rotation::from(expected_rv);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationMatrix -> Quaternion
+        let r = Rotation::from(expected_mat);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence XYZ)
+        let euler = EulerAngles::new(
+            0.5_f32, 0.30000001192092896_f32, 0.20000000298023224_f32,
+            EulerSequence::ZYX_xyz,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+
+
+    #[test]
+    fn scipy_euler_seq_xzy() {
+        const TOL: f32 = 1e-05_f32;
+        let expected_quat = Quaternion::new(
+            0.9569374322891235_f32, 0.22894863784313202_f32, 
+            0.0588567852973938_f32, 0.1684909462928772_f32
+        );
+        let expected_aa = AxisAngle::new(
+            0.7886776328086853_f32, 0.20274865627288818_f32, 
+            0.5804141759872437_f32, 0.5890688300132751_f32
+        );
+        let expected_rv = RotationVector::new(
+            0.46458539366722107_f32, 0.11943291127681732_f32, 
+            0.3419038951396942_f32
+        );
+        let expected_mat = RotationMatrix([
+            [0.936293363571167_f32, -0.29552021622657776_f32, 0.1897960603237152_f32],
+            [0.3494209349155426_f32, 0.8383866548538208_f32, -0.4183453619480133_f32],
+            [-0.035492971539497375_f32, 0.4580127000808716_f32, 0.8882368206977844_f32],
+        ]);
+
+        // From Quaternion -> all others
+        let r = Rotation::from(expected_quat);
+        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
+        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
+        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
+
+        // From AxisAngle -> Quaternion
+        let r = Rotation::from(expected_aa);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationVector -> Quaternion
+        let r = Rotation::from(expected_rv);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationMatrix -> Quaternion
+        let r = Rotation::from(expected_mat);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence XZY)
+        let euler = EulerAngles::new(
+            0.5_f32, 0.30000001192092896_f32, 0.20000000298023224_f32,
+            EulerSequence::YZX_xzy,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+
+
+    #[test]
+    fn scipy_euler_seq_yxz() {
+        const TOL: f32 = 1e-05_f32;
+        let expected_quat = Quaternion::new(
+            0.9569374322891235_f32, 0.1684909462928772_f32, 
+            0.22894863784313202_f32, 0.0588567852973938_f32
+        );
+        let expected_aa = AxisAngle::new(
+            0.5804141759872437_f32, 0.7886776328086853_f32, 
+            0.20274865627288818_f32, 0.5890688300132751_f32
+        );
+        let expected_rv = RotationVector::new(
+            0.3419038951396942_f32, 0.46458539366722107_f32, 
+            0.11943291127681732_f32
+        );
+        let expected_mat = RotationMatrix([
+            [0.8882368206977844_f32, -0.035492971539497375_f32, 0.4580127000808716_f32],
+            [0.1897960603237152_f32, 0.936293363571167_f32, -0.29552021622657776_f32],
+            [-0.4183453619480133_f32, 0.3494209349155426_f32, 0.8383866548538208_f32],
+        ]);
+
+        // From Quaternion -> all others
+        let r = Rotation::from(expected_quat);
+        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
+        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
+        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
+
+        // From AxisAngle -> Quaternion
+        let r = Rotation::from(expected_aa);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationVector -> Quaternion
+        let r = Rotation::from(expected_rv);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationMatrix -> Quaternion
+        let r = Rotation::from(expected_mat);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence YXZ)
+        let euler = EulerAngles::new(
+            0.5_f32, 0.30000001192092896_f32, 0.20000000298023224_f32,
+            EulerSequence::ZXY_yxz,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+
+
+    #[test]
+    fn scipy_euler_seq_yzx() {
+        const TOL: f32 = 1e-05_f32;
+        let expected_quat = Quaternion::new(
+            0.9495553970336914_f32, 0.1324305534362793_f32, 
+            0.25785890221595764_f32, 0.11964726448059082_f32
+        );
+        let expected_aa = AxisAngle::new(
+            0.42229220271110535_f32, 0.8222559094429016_f32, 
+            0.3815291225910187_f32, 0.6379624009132385_f32
+        );
+        let expected_rv = RotationVector::new(
+            0.2694065570831299_f32, 0.5245683789253235_f32, 
+            0.24340122938156128_f32
+        );
+        let expected_mat = RotationMatrix([
+            [0.8383866548538208_f32, -0.15892662107944489_f32, 0.5213925242424011_f32],
+            [0.29552021622657776_f32, 0.936293363571167_f32, -0.1897960603237152_f32],
+            [-0.4580127000808716_f32, 0.31320449709892273_f32, 0.8319419026374817_f32],
+        ]);
+
+        // From Quaternion -> all others
+        let r = Rotation::from(expected_quat);
+        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
+        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
+        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
+
+        // From AxisAngle -> Quaternion
+        let r = Rotation::from(expected_aa);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationVector -> Quaternion
+        let r = Rotation::from(expected_rv);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationMatrix -> Quaternion
+        let r = Rotation::from(expected_mat);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence YZX)
+        let euler = EulerAngles::new(
+            0.5_f32, 0.30000001192092896_f32, 0.20000000298023224_f32,
+            EulerSequence::XZY_yzx,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+
+
+    #[test]
+    fn scipy_euler_seq_zxy() {
+        const TOL: f32 = 1e-05_f32;
+        let expected_quat = Quaternion::new(
+            0.9495553970336914_f32, 0.11964726448059082_f32, 
+            0.1324305534362793_f32, 0.25785890221595764_f32
+        );
+        let expected_aa = AxisAngle::new(
+            0.3815291225910187_f32, 0.42229220271110535_f32, 
+            0.8222559094429016_f32, 0.6379624009132385_f32
+        );
+        let expected_rv = RotationVector::new(
+            0.24340122938156128_f32, 0.2694065570831299_f32, 
+            0.5245683789253235_f32
+        );
+        let expected_mat = RotationMatrix([
+            [0.8319419026374817_f32, -0.4580127000808716_f32, 0.31320449709892273_f32],
+            [0.5213925242424011_f32, 0.8383866548538208_f32, -0.15892662107944489_f32],
+            [-0.1897960603237152_f32, 0.29552021622657776_f32, 0.936293363571167_f32],
+        ]);
+
+        // From Quaternion -> all others
+        let r = Rotation::from(expected_quat);
+        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
+        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
+        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
+
+        // From AxisAngle -> Quaternion
+        let r = Rotation::from(expected_aa);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationVector -> Quaternion
+        let r = Rotation::from(expected_rv);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationMatrix -> Quaternion
+        let r = Rotation::from(expected_mat);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence ZXY)
+        let euler = EulerAngles::new(
+            0.5_f32, 0.30000001192092896_f32, 0.20000000298023224_f32,
+            EulerSequence::YXZ_zxy,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+
+
+    #[test]
+    fn scipy_euler_seq_zyx() {
+        const TOL: f32 = 1e-05_f32;
+        let expected_quat = Quaternion::new(
+            0.9569374322891235_f32, 0.0588567852973938_f32, 
+            0.1684909462928772_f32, 0.22894863784313202_f32
+        );
+        let expected_aa = AxisAngle::new(
+            0.20274865627288818_f32, 0.5804141759872437_f32, 
+            0.7886776328086853_f32, 0.5890688300132751_f32
+        );
+        let expected_rv = RotationVector::new(
+            0.11943291127681732_f32, 0.3419038951396942_f32, 
+            0.46458539366722107_f32
+        );
+        let expected_mat = RotationMatrix([
+            [0.8383866548538208_f32, -0.4183453619480133_f32, 0.3494209349155426_f32],
+            [0.4580127000808716_f32, 0.8882368206977844_f32, -0.035492971539497375_f32],
+            [-0.29552021622657776_f32, 0.1897960603237152_f32, 0.936293363571167_f32],
+        ]);
+
+        // From Quaternion -> all others
+        let r = Rotation::from(expected_quat);
+        assert_axis_angle_near(&r.as_axis_angle(), &expected_aa, TOL);
+        assert_rotation_vector_near(&r.as_rotation_vector(), &expected_rv, TOL);
+        assert_rotation_matrix_near(&r.as_rotation_matrix(), &expected_mat, TOL);
+
+        // From AxisAngle -> Quaternion
+        let r = Rotation::from(expected_aa);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationVector -> Quaternion
+        let r = Rotation::from(expected_rv);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From RotationMatrix -> Quaternion
+        let r = Rotation::from(expected_mat);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+
+        // From EulerAngles -> Rotation (sequence ZYX)
+        let euler = EulerAngles::new(
+            0.5_f32, 0.30000001192092896_f32, 0.20000000298023224_f32,
+            EulerSequence::XYZ_zyx,
+        );
+        let r = Rotation::from(euler);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+
 
     #[test]
     fn scipy_f32_min_rotation() {
@@ -1239,6 +1601,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_f32_angle_near_2pi() {
         const TOL: f32 = 1e-05_f32;
@@ -1278,6 +1641,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_quat_components_near_limits() {
@@ -1319,6 +1683,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_rotvec_angle_gt_2pi() {
         const TOL: f32 = 1e-05_f32;
@@ -1358,6 +1723,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_rotvec_zero() {
@@ -1399,6 +1765,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_random_0() {
         const TOL: f32 = 1e-05_f32;
@@ -1438,6 +1805,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_random_1() {
@@ -1479,6 +1847,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_random_2() {
         const TOL: f32 = 1e-05_f32;
@@ -1518,6 +1887,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_random_3() {
@@ -1559,6 +1929,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_random_4() {
         const TOL: f32 = 1e-05_f32;
@@ -1598,6 +1969,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_random_5() {
@@ -1639,6 +2011,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_random_6() {
         const TOL: f32 = 1e-05_f32;
@@ -1678,6 +2051,7 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
+
 
     #[test]
     fn scipy_random_7() {
@@ -1719,6 +2093,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_random_8() {
         const TOL: f32 = 1e-05_f32;
@@ -1759,6 +2134,7 @@ mod scipy_tests {
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
 
+
     #[test]
     fn scipy_random_9() {
         const TOL: f32 = 1e-05_f32;
@@ -1798,5 +2174,5 @@ mod scipy_tests {
         let r = Rotation::from(expected_mat);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
     }
-}
 
+}

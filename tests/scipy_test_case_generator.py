@@ -70,10 +70,11 @@ def _axis_from_rotvec(rv):
     return rv / norm, _normalize_angle_0_2pi(norm)
 
 
-def rotation_to_test_case(r: Rotation, label: str) -> dict:
+def rotation_to_test_case(r: Rotation, label: str, euler: dict | None = None) -> dict:
     """
     Convert a scipy Rotation to a test case dict with all representations.
     Uses Rust conventions: quat (w,x,y,z), axis_angle angle in [0,2π), etc.
+    If euler is provided, it should be {"seq": "ZYX", "angles_rad": [a, b, c]}.
     """
     # Quaternion (Rust: w,x,y,z)
     q_xyzw = r.as_quat(scalar_first=False)
@@ -110,13 +111,16 @@ def rotation_to_test_case(r: Rotation, label: str) -> dict:
         [_to_f32(mat[2, 0]), _to_f32(mat[2, 1]), _to_f32(mat[2, 2])],
     ]
 
-    return {
+    result = {
         "label": label,
         "quaternion": quat,
         "axis_angle": axis_angle,
         "rotation_vector": rotvec,
         "rotation_matrix": rotation_matrix,
     }
+    if euler is not None:
+        result["euler"] = euler
+    return result
 
 
 def generate_all_test_cases() -> list[dict]:
@@ -210,17 +214,35 @@ def generate_all_test_cases() -> list[dict]:
     cases.append(rotation_to_test_case(r, "matrix_90deg_z"))
 
     # -------------------------------------------------------------------------
-    # 7. From Euler angles (degrees) - common in robotics
+    # 7. From Euler angles (roll-pitch-yaw = ZYX intrinsic) - common in robotics
     # -------------------------------------------------------------------------
     for label, euler_deg in [
-        ("euler_xyz_30_45_60", [30, 45, 60]),
-        ("euler_xyz_90_0_0", [90, 0, 0]),
-        ("euler_xyz_0_90_0", [0, 90, 0]),
-        ("euler_xyz_0_0_90", [0, 0, 90]),
-        ("euler_xyz_gimbal_like", [90, 90, 0]),
+        ("euler_zyx_30_45_60", [30, 45, 60]),
+        ("euler_zyx_90_0_0", [90, 0, 0]),
+        ("euler_zyx_0_90_0", [0, 90, 0]),
+        ("euler_zyx_0_0_90", [0, 0, 90]),
+        ("euler_zyx_gimbal_like", [90, 90, 0]),
     ]:
-        r = Rotation.from_euler("xyz", euler_deg, degrees=True)
-        cases.append(rotation_to_test_case(r, label))
+        r = Rotation.from_euler("ZYX", euler_deg, degrees=True)
+        angles_rad = [math.radians(x) for x in euler_deg]
+        cases.append(rotation_to_test_case(r, label, euler={"seq": "ZYX", "angles_rad": angles_rad}))
+
+    # -------------------------------------------------------------------------
+    # 7b. Euler angle tests for all 6 Tait-Bryan sequences
+    # -------------------------------------------------------------------------
+    # Use fixed angles (radians) for each sequence to verify round-trip
+    euler_seq_tests = [
+        ("XYZ", [0.5, 0.3, 0.2]),
+        ("XZY", [0.5, 0.3, 0.2]),
+        ("YXZ", [0.5, 0.3, 0.2]),
+        ("YZX", [0.5, 0.3, 0.2]),
+        ("ZXY", [0.5, 0.3, 0.2]),
+        ("ZYX", [0.5, 0.3, 0.2]),
+    ]
+    for seq, angles_rad in euler_seq_tests:
+        r = Rotation.from_euler(seq, angles_rad, degrees=False)
+        label = f"euler_seq_{seq.lower()}"
+        cases.append(rotation_to_test_case(r, label, euler={"seq": seq, "angles_rad": angles_rad}))
 
     # -------------------------------------------------------------------------
     # 8. f32 precision limits
@@ -257,6 +279,18 @@ def generate_all_test_cases() -> list[dict]:
         cases.append(rotation_to_test_case(r, f"random_{i}"))
 
     return cases
+
+
+def _seq_to_rust(seq: str) -> str:
+    """Map scipy intrinsic sequence to Rust EulerSequence variant (extrinsic_intrinsic)."""
+    return {
+        "XYZ": "ZYX_xyz",
+        "XZY": "YZX_xzy",
+        "YXZ": "ZXY_yxz",
+        "YZX": "XZY_yzx",
+        "ZXY": "YXZ_zxy",
+        "ZYX": "XYZ_zyx",
+    }[seq]
 
 
 def _rust_case(c: dict) -> str:
@@ -307,8 +341,24 @@ def _rust_case(c: dict) -> str:
         f"        // From RotationMatrix -> Quaternion",
         f"        let r = Rotation::from(expected_mat);",
         f"        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);",
-        f"    }}",
     ]
+    if "euler" in c:
+        e = c["euler"]
+        seq = e["seq"]
+        a, b, c = e["angles_rad"]
+        seq_rust = f"EulerSequence::{_seq_to_rust(seq)}"
+        lines.extend([
+            "",
+            f"        // From EulerAngles -> Rotation (sequence {seq})",
+            f"        let euler = EulerAngles::new(",
+            f"            {_rust_f32_literal(a)}, {_rust_f32_literal(b)}, {_rust_f32_literal(c)},",
+            f"            {seq_rust},",
+            f"        );",
+            f"        let r = Rotation::from(euler);",
+            f"        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);",
+        ])
+    lines.append("    }")
+    lines.append("")
     return "\n".join(lines)
 
 
