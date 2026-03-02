@@ -289,14 +289,14 @@ impl EulerAngles {
                     (a, -std::f32::consts::FRAC_PI_2, 0.0)
                 }
             }
-            // R = R_x(c)*R_z(b)*R_y(a) — Eberly RxRzRy: θz=asin(-r01), θx=atan2(r21,r11), θy=atan2(r02,r00)
+            // R = R_x(a)*R_z(b)*R_y(c)
             EulerSequence::YZX_xzy => {
                 let sb = (-m[0][1]).clamp(-1.0, 1.0);
                 let b = sb.asin();
                 let cb = b.cos();
                 if cb.abs() > 1e-6 {
-                    let a = m[0][2].atan2(m[0][0]);
-                    let c = m[2][1].atan2(m[1][1]);
+                    let a = m[2][1].atan2(m[1][1]);
+                    let c = m[0][2].atan2(m[0][0]);
                     (a, b, c)
                 } else if m[0][1] < 0.0 {
                     let a = (-m[2][0]).atan2(m[2][2]);
@@ -417,16 +417,16 @@ impl EulerAngles {
             }
             // R = R_y(a)*R_z(b)*R_y(c)
             EulerSequence::ZYZ_yzy => {
-                let cb = m[2][2].clamp(-1.0, 1.0);
+                let cb = m[1][1].clamp(-1.0, 1.0);
                 let b = cb.acos();
                 let sb = b.sin();
                 if sb.abs() > 1e-6 {
-                    let a = m[1][2].atan2(m[0][2]);
-                    let c = m[2][1].atan2(-m[2][0]);
+                    let a = m[2][1].atan2(-m[0][1]);
+                    let c = m[1][2].atan2(m[1][0]);
                     (a, b, c)
                 } else {
                     let a = 0.0;
-                    let c = m[1][0].atan2(m[1][1]);
+                    let c = m[2][0].atan2(m[0][0]);
                     (a, b, c)
                 }
             }
@@ -986,6 +986,25 @@ mod euler_tests {
             && (actual.y + expected.y).abs() <= tol && (actual.z + expected.z).abs() <= tol;
         assert!(q_ok || dual_ok, "Quaternion: got {:?}, expected {:?}", actual, expected);
     }
+
+    /// Focused test: YZX round-trip. EulerAngles (a,b,c) -> RotationMatrix -> from_rotation_matrix -> same rotation?
+    #[test]
+    fn from_rotation_matrix_yzx_round_trip() {
+        let e_orig = EulerAngles::new(0.5, 0.3, 0.2, EulerSequence::YZX_xzy);
+        let mat = RotationMatrix::from(e_orig);
+        let e_extracted = EulerAngles::from_rotation_matrix(mat, EulerSequence::YZX_xzy);
+        assert_euler_same_rotation(&e_orig, &e_extracted);
+    }
+
+    /// Focused test: ZYZ round-trip (proper Euler).
+    #[test]
+    fn from_rotation_matrix_zyz_round_trip() {
+        let e_orig = EulerAngles::new(0.4, 0.6, 0.2, EulerSequence::ZYZ_yzy);
+        let mat = RotationMatrix::from(e_orig);
+        let e_extracted = EulerAngles::from_rotation_matrix(mat, EulerSequence::ZYZ_yzy);
+        assert_euler_same_rotation(&e_orig, &e_extracted);
+    }
+
 }
 
 /// Tests rotation conversions against scipy-generated reference data.
