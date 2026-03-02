@@ -6,6 +6,7 @@ use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 
 mod axis_angle;
+mod axis_angle_flag;
 mod collapsible_section;
 mod dom;
 mod format;
@@ -520,6 +521,8 @@ fn run_three_d(
         let light0 = DirectionalLight::new(&gl, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
         let light1 = DirectionalLight::new(&gl, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
 
+        let mut axis_angle_flag = axis_angle_flag::AxisAngleFlag::new(&gl);
+
         // Request initial render (rotation Effect will also trigger on mount)
         request_redraw();
 
@@ -580,6 +583,8 @@ fn run_three_d(
                     axes_body.geometry.set_transformation(Mat4::identity());
                     axes_body.geometry.set_instances(&body_axes_instances(rot_mat));
 
+                    axis_angle_flag.update(&rot.as_axis_angle());
+
                     let objects: Vec<&dyn Object> = match &mut mesh_objects {
                         Some((model_unrotated, model_rotated)) => {
                             model_rotated.geometry.set_transformation(rot_mat);
@@ -588,9 +593,16 @@ fn run_three_d(
                                 &*model_rotated,
                                 &axes,
                                 &axes_body,
+                                axis_angle_flag.pole(),
+                                axis_angle_flag.flag(),
                             ]
                         }
-                        None => vec![&axes, &axes_body],
+                        None => vec![
+                            &axes,
+                            &axes_body,
+                            axis_angle_flag.pole(),
+                            axis_angle_flag.flag(),
+                        ],
                     };
                     frame_input
                         .screen()
