@@ -238,59 +238,25 @@ impl EulerAngles {
     pub fn from_rotation_matrix(matrix: RotationMatrix, sequence: EulerSequence) -> Self {
         let m = &matrix.0;
         let (a, b, c) = match sequence {
-            // Tait-Bryan: R = R_z(a)*R_y(b)*R_x(c)
+            // XYZ: R_x*R_y*R_z — b=asin(r02), a=atan2(-r12,r22), c=atan2(-r01,r00)
             EulerSequence::XYZ_zyx => {
-                let sb = (-m[2][0]).clamp(-1.0, 1.0);
+                let sb = m[0][2].clamp(-1.0, 1.0);
                 let b = sb.asin();
                 let cb = b.cos();
                 if cb.abs() > 1e-6 {
-                    let a = m[1][0].atan2(m[0][0]);
-                    let c = m[2][1].atan2(m[2][2]);
+                    let a = (-m[1][2]).atan2(m[2][2]);
+                    let c = (-m[0][1]).atan2(m[0][0]);
                     (a, b, c)
-                } else if m[2][0] < 0.0 {
-                    let a = m[0][2].atan2(-m[0][1]);
+                } else if m[0][2] > 0.0 {
+                    let a = m[1][0].atan2(m[1][1]);
                     (a, std::f32::consts::FRAC_PI_2, 0.0)
                 } else {
-                    let a = (-m[0][2]).atan2(m[0][1]);
+                    let a = (-m[1][0]).atan2(m[1][1]);
                     (a, -std::f32::consts::FRAC_PI_2, 0.0)
                 }
             }
-            // R = R_y(a)*R_z(b)*R_x(c)
+            // XZY: R_x*R_z*R_y — b=asin(-r01), a=atan2(r21,r11), c=atan2(r02,r00)
             EulerSequence::XZY_yzx => {
-                let sb = m[1][0].clamp(-1.0, 1.0);
-                let b = sb.asin();
-                let cb = b.cos();
-                if cb.abs() > 1e-6 {
-                    let a = (-m[2][0]).atan2(m[0][0]);
-                    let c = (-m[1][2]).atan2(m[1][1]);
-                    (a, b, c)
-                } else if m[1][0] > 0.0 {
-                    let a = (-m[2][0]).atan2(m[0][0]);
-                    (a, std::f32::consts::FRAC_PI_2, 0.0)
-                } else {
-                    let a = m[2][0].atan2(-m[0][0]);
-                    (a, -std::f32::consts::FRAC_PI_2, 0.0)
-                }
-            }
-            // R = R_z(a)*R_x(b)*R_y(c)
-            EulerSequence::YXZ_zxy => {
-                let sb = m[2][1].clamp(-1.0, 1.0);
-                let b = sb.asin();
-                let cb = b.cos();
-                if cb.abs() > 1e-6 {
-                    let a = (-m[0][1]).atan2(m[1][1]);
-                    let c = (-m[2][0]).atan2(m[2][2]);
-                    (a, b, c)
-                } else if m[2][1] > 0.0 {
-                    let a = m[2][0].atan2(m[2][2]);
-                    (a, std::f32::consts::FRAC_PI_2, 0.0)
-                } else {
-                    let a = (-m[2][0]).atan2(m[2][2]);
-                    (a, -std::f32::consts::FRAC_PI_2, 0.0)
-                }
-            }
-            // R = R_x(a)*R_z(b)*R_y(c)
-            EulerSequence::YZX_xzy => {
                 let sb = (-m[0][1]).clamp(-1.0, 1.0);
                 let b = sb.asin();
                 let cb = b.cos();
@@ -302,12 +268,12 @@ impl EulerAngles {
                     let a = (-m[2][0]).atan2(m[2][2]);
                     (a, std::f32::consts::FRAC_PI_2, 0.0)
                 } else {
-                    let a = (-m[2][0]).atan2(m[2][2]);
+                    let a = m[2][0].atan2(-m[2][2]);
                     (a, -std::f32::consts::FRAC_PI_2, 0.0)
                 }
             }
-            // R = R_y(a)*R_x(b)*R_z(c) — Eberly RyRxRz: θx=asin(-r12), θy=atan2(r02,r22), θz=atan2(r10,r11)
-            EulerSequence::ZXY_yxz => {
+            // YXZ: R_y*R_x*R_z — b=asin(-r12), a=atan2(r02,r22), c=atan2(r10,r11)
+            EulerSequence::YXZ_zxy => {
                 let sb = (-m[1][2]).clamp(-1.0, 1.0);
                 let b = sb.asin();
                 let cb = b.cos();
@@ -323,20 +289,64 @@ impl EulerAngles {
                     (a, -std::f32::consts::FRAC_PI_2, 0.0)
                 }
             }
-            // R = R_x(a)*R_y(b)*R_z(c)
-            EulerSequence::ZYX_xyz => {
-                let sb = m[0][2].clamp(-1.0, 1.0);
+            // YZX: R_y*R_z*R_x — b=asin(r10), a=atan2(-r20,r00), c=atan2(-r12,r11)
+            EulerSequence::YZX_xzy => {
+                let sb = m[1][0].clamp(-1.0, 1.0);
                 let b = sb.asin();
                 let cb = b.cos();
                 if cb.abs() > 1e-6 {
-                    let a = (-m[1][2]).atan2(m[2][2]);
-                    let c = (-m[0][1]).atan2(m[0][0]);
+                    let a = (-m[2][0]).atan2(m[0][0]);
+                    let c = (-m[1][2]).atan2(m[1][1]);
                     (a, b, c)
-                } else if m[0][2] > 0.0 {
-                    let a = m[1][0].atan2(m[1][1]);
+                } else if m[1][0] > 0.0 {
+                    let a = m[2][1].atan2(m[2][2]);
                     (a, std::f32::consts::FRAC_PI_2, 0.0)
                 } else {
-                    let a = (-m[1][0]).atan2(m[1][1]);
+                    let a = (-m[2][1]).atan2(m[2][2]);
+                    (a, -std::f32::consts::FRAC_PI_2, 0.0)
+                }
+            }
+            // ZXY: R_z*R_x*R_y — b=asin(r21), a=atan2(-r01,r11), c=atan2(-r20,r22)
+            EulerSequence::ZXY_yxz => {
+                let sb = m[2][1].clamp(-1.0, 1.0);
+                let b = sb.asin();
+                let cb = b.cos();
+                if cb.abs() > 1e-6 {
+                    let a = (-m[0][1]).atan2(m[1][1]);
+                    let c = (-m[2][0]).atan2(m[2][2]);
+                    (a, b, c)
+                } else if m[2][1] > 0.0 {
+                    let a = m[0][2].atan2(m[0][0]);
+                    (a, std::f32::consts::FRAC_PI_2, 0.0)
+                } else {
+                    let a = (-m[0][2]).atan2(m[0][0]);
+                    (a, -std::f32::consts::FRAC_PI_2, 0.0)
+                }
+            }
+            // ZYX: R_z*R_y*R_x — b=asin(-r20), a=atan2(r10,r00), c=atan2(r21,r22)
+            EulerSequence::ZYX_xyz => {
+                let sb = (-m[2][0]).clamp(-1.0, 1.0);
+                let b = sb.asin();
+                let cb = b.cos();
+                if cb.abs() > 1e-6 {
+                    let a = m[1][0].atan2(m[0][0]);
+                    let c = m[2][1].atan2(m[2][2]);
+                    (a, b, c)
+                } else if m[2][0] < 0.0 {
+                    // North pole: m02,m22≈0; use a=atan2(-m01,m11) with c=0
+                    let a = if m[0][2].abs() < 1e-6 && m[2][2].abs() < 1e-6 {
+                        (-m[0][1]).atan2(m[1][1])
+                    } else {
+                        m[0][2].atan2(m[2][2])
+                    };
+                    (a, std::f32::consts::FRAC_PI_2, 0.0)
+                } else {
+                    // South pole
+                    let a = if m[0][2].abs() < 1e-6 && m[2][2].abs() < 1e-6 {
+                        m[0][1].atan2(m[1][1])
+                    } else {
+                        (-m[0][2]).atan2(m[2][2])
+                    };
                     (a, -std::f32::consts::FRAC_PI_2, 0.0)
                 }
             }
@@ -721,12 +731,12 @@ fn rot_z(a: f32) -> RotationMatrix {
 impl From<EulerAngles> for RotationMatrix {
     fn from(e: EulerAngles) -> Self {
         match e.sequence {
-            EulerSequence::XYZ_zyx => rot_z(e.a) * rot_y(e.b) * rot_x(e.c),
-            EulerSequence::XZY_yzx => rot_y(e.a) * rot_z(e.b) * rot_x(e.c),
-            EulerSequence::YXZ_zxy => rot_z(e.a) * rot_x(e.b) * rot_y(e.c),
-            EulerSequence::YZX_xzy => rot_x(e.a) * rot_z(e.b) * rot_y(e.c),
-            EulerSequence::ZXY_yxz => rot_y(e.a) * rot_x(e.b) * rot_z(e.c),
-            EulerSequence::ZYX_xyz => rot_x(e.a) * rot_y(e.b) * rot_z(e.c),
+            EulerSequence::XYZ_zyx => rot_x(e.a) * rot_y(e.b) * rot_z(e.c),
+            EulerSequence::XZY_yzx => rot_x(e.a) * rot_z(e.b) * rot_y(e.c),
+            EulerSequence::YXZ_zxy => rot_y(e.a) * rot_x(e.b) * rot_z(e.c),
+            EulerSequence::YZX_xzy => rot_y(e.a) * rot_z(e.b) * rot_x(e.c),
+            EulerSequence::ZXY_yxz => rot_z(e.a) * rot_x(e.b) * rot_y(e.c),
+            EulerSequence::ZYX_xyz => rot_z(e.a) * rot_y(e.b) * rot_x(e.c),
             EulerSequence::XYX_yxy => rot_y(e.a) * rot_x(e.b) * rot_y(e.c),
             EulerSequence::XZX_zxz => rot_z(e.a) * rot_x(e.b) * rot_z(e.c),
             EulerSequence::YXY_xyx => rot_x(e.a) * rot_y(e.b) * rot_x(e.c),
@@ -1005,6 +1015,16 @@ mod euler_tests {
         assert_euler_same_rotation(&e_orig, &e_extracted);
     }
 
+    /// Scipy convention: EulerAngles (a,b,c) for sequence ABC produces R = R_A(a)*R_B(b)*R_C(c).
+    /// This test verifies ZYX matches scipy's from_euler('ZYX') for axis_angle_dir0_angle1.
+    #[test]
+    fn euler_from_scipy_zyx_convention() {
+        let zyx_angles = (0.5612027282726585_f32, 0.3158423005321318, 0.5612027282726585);
+        let expected_quat = Quaternion::new(0.9238795, 0.22094238, 0.22094238, 0.22094238);
+        let e = EulerAngles::new(zyx_angles.0, zyx_angles.1, zyx_angles.2, EulerSequence::ZYX_xyz);
+        let r = Rotation::from(e);
+        assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
 }
 
 /// Tests rotation conversions against scipy-generated reference data.
