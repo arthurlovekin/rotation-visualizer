@@ -7,6 +7,11 @@ use std::ops::{Index, IndexMut};
 /// than 1e-6 while remaining numerically stable for f32.
 const NEAR_IDENTITY_S_THRESHOLD: f32 = 1.0 * f32::EPSILON;
 
+/// When trace < this in matrix-to-quaternion conversion, use alternative branches to avoid
+/// division by near-zero (trace ≈ 0 occurs for ~180° rotations). Minimal epsilon for f32
+/// numerical stability.
+const MATRIX_TO_QUAT_TRACE_THRESHOLD: f32 = 4.0 * f32::EPSILON;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Quaternion {
     pub w: f32,
@@ -94,7 +99,7 @@ impl From<RotationMatrix> for Quaternion {
         let (m10, m11, m12) = (matrix[1][0], matrix[1][1], matrix[1][2]);
         let (m20, m21, m22) = (matrix[2][0], matrix[2][1], matrix[2][2]);
         let trace = 1.0 + m00 + m11 + m22;
-        let (w, x, y, z) = if trace > 1e-6 {
+        let (w, x, y, z) = if trace > MATRIX_TO_QUAT_TRACE_THRESHOLD {
             let s = 2.0 * trace.sqrt();
             (
                 s / 4.0,
@@ -640,6 +645,7 @@ impl From<Quaternion> for RotationVector {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct RotationMatrix(pub [[f32; 3]; 3]);
 
 impl Index<usize> for RotationMatrix {
@@ -1026,6 +1032,195 @@ mod euler_tests {
         let e = EulerAngles::new(zyx_angles.0, zyx_angles.1, zyx_angles.2, EulerSequence::ZYX_xyz);
         let r = Rotation::from(e);
         assert_quaternion_near(&r.as_quaternion(), &expected_quat, TOL);
+    }
+}
+
+/// Tests for RotationMatrix -> Quaternion conversion (numerically stable Shepperd's method).
+#[cfg(test)]
+mod matrix_to_quat_tests {
+    use super::*;
+
+    /// Standard tolerance for most cases.
+    const TOL: f32 = 1e-5;
+    /// Relaxed tolerance for near-180° rotations (numerically sensitive).
+    const TOL_NEAR_180: f32 = 3e-4;
+
+    fn assert_quat_same_rotation(actual: &Quaternion, expected: &Quaternion, tol: f32) {
+        let q_ok = (actual.w - expected.w).abs() <= tol && (actual.x - expected.x).abs() <= tol
+            && (actual.y - expected.y).abs() <= tol && (actual.z - expected.z).abs() <= tol;
+        let dual_ok = (actual.w + expected.w).abs() <= tol && (actual.x + expected.x).abs() <= tol
+            && (actual.y + expected.y).abs() <= tol && (actual.z + expected.z).abs() <= tol;
+        assert!(
+            q_ok || dual_ok,
+            "Quaternions represent different rotations: actual {:?}, expected {:?}",
+            actual,
+            expected
+        );
+    }
+
+    fn assert_matrix_equals_quat(matrix: &RotationMatrix, quat: &Quaternion, tol: f32) {
+        let reconstructed = RotationMatrix::from(*quat);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert!(
+                    (matrix[i][j] - reconstructed[i][j]).abs() <= tol,
+                    "Matrix mismatch at [{},{}]: got {} expected {}",
+                    i,
+                    j,
+                    reconstructed[i][j],
+                    matrix[i][j]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn matrix_to_quat_identity() {
+        let mat = RotationMatrix::default();
+        let q = Quaternion::from(mat);
+        assert_quat_same_rotation(&q, &Quaternion::default(), TOL);
+    }
+
+    #[test]
+    fn matrix_to_quat_90_about_axes() {
+        // 90° about X, Y, Z (ZYX: a=Z, b=Y, c=X so c=π/2 gives X, b=π/2 gives Y, a=π/2 gives Z)
+        let seq = EulerSequence::ZYX_xyz;
+        let half = std::f32::consts::FRAC_PI_2;
+
+        // 90° about X: (a=0, b=0, c=π/2)
+        let mat_x = RotationMatrix::from(EulerAngles::new(0.0, 0.0, half, seq));
+        let q_x = Quaternion::from(mat_x);
+        let expected_x = Quaternion::new(0.70710677, 0.70710677, 0.0, 0.0);
+        assert_quat_same_rotation(&q_x, &expected_x, TOL);
+        assert_matrix_equals_quat(&mat_x, &q_x, TOL);
+
+        // 90° about Y: (a=0, b=π/2, c=0)
+        let mat_y = RotationMatrix::from(EulerAngles::new(0.0, half, 0.0, seq));
+        let q_y = Quaternion::from(mat_y);
+        let expected_y = Quaternion::new(0.70710677, 0.0, 0.70710677, 0.0);
+        assert_quat_same_rotation(&q_y, &expected_y, TOL);
+        assert_matrix_equals_quat(&mat_y, &q_y, TOL);
+
+        // 90° about Z: (a=π/2, b=0, c=0)
+        let mat_z = RotationMatrix::from(EulerAngles::new(half, 0.0, 0.0, seq));
+        let q_z = Quaternion::from(mat_z);
+        let expected_z = Quaternion::new(0.70710677, 0.0, 0.0, 0.70710677);
+        assert_quat_same_rotation(&q_z, &expected_z, TOL);
+        assert_matrix_equals_quat(&mat_z, &q_z, TOL);
+    }
+
+    /// Critical case: 180° rotations have trace = 0, triggering alternative branches.
+    #[test]
+    fn matrix_to_quat_180_about_axes() {
+        let pi = std::f32::consts::PI;
+        let seq = EulerSequence::ZYX_xyz;
+
+        // 180° about X: trace = 0, uses m00 branch
+        let mat_x = RotationMatrix::from(EulerAngles::new(0.0, 0.0, pi, seq));
+        let q_x = Quaternion::from(mat_x);
+        let expected_x = Quaternion::new(0.0, 1.0, 0.0, 0.0);
+        assert_quat_same_rotation(&q_x, &expected_x, TOL);
+        assert_matrix_equals_quat(&mat_x, &q_x, TOL);
+
+        // 180° about Y: trace = 0, uses m11 branch
+        let mat_y = RotationMatrix::from(EulerAngles::new(0.0, pi, 0.0, seq));
+        let q_y = Quaternion::from(mat_y);
+        let expected_y = Quaternion::new(0.0, 0.0, 1.0, 0.0);
+        assert_quat_same_rotation(&q_y, &expected_y, TOL);
+        assert_matrix_equals_quat(&mat_y, &q_y, TOL);
+
+        // 180° about Z: trace = 0, uses m22 branch
+        let mat_z = RotationMatrix::from(EulerAngles::new(pi, 0.0, 0.0, seq));
+        let q_z = Quaternion::from(mat_z);
+        let expected_z = Quaternion::new(0.0, 0.0, 0.0, 1.0);
+        assert_quat_same_rotation(&q_z, &expected_z, TOL);
+        assert_matrix_equals_quat(&mat_z, &q_z, TOL);
+    }
+
+    /// Round-trip: quaternion -> matrix -> quaternion must preserve the rotation.
+    #[test]
+    fn matrix_to_quat_round_trip() {
+        let test_quats = [
+            (Quaternion::new(1.0, 0.0, 0.0, 0.0), TOL),
+            (Quaternion::new(0.9238795, 0.22094238, 0.22094238, 0.22094238), TOL),
+            (Quaternion::new(0.5, 0.5, 0.5, 0.5), TOL),
+            (Quaternion::new(0.0, 1.0, 0.0, 0.0), TOL),
+            (Quaternion::new(0.0, 0.0, 1.0, 0.0), TOL),
+            (Quaternion::new(0.0, 0.0, 0.0, 1.0), TOL),
+            (Quaternion::new(0.001, 0.999, 0.001, 0.001), TOL_NEAR_180), // Near 180° about X
+            (Quaternion::new(0.001, 0.001, 0.999, 0.001), TOL_NEAR_180), // Near 180° about Y
+            (Quaternion::new(0.001, 0.001, 0.001, 0.999), TOL_NEAR_180), // Near 180° about Z
+        ];
+        for (q_orig, tol) in test_quats {
+            let mat = RotationMatrix::from(q_orig);
+            let q_reconstructed = Quaternion::from(mat);
+            assert_quat_same_rotation(&q_reconstructed, &q_orig, tol);
+            assert_matrix_equals_quat(&mat, &q_reconstructed, tol);
+        }
+    }
+
+    /// Stress test: angles near 180° to exercise branch boundaries.
+    #[test]
+    fn matrix_to_quat_near_180_degrees() {
+        let seq = EulerSequence::ZYX_xyz;
+        for angle_deg in [179.0_f32, 179.5, 179.9, 180.0, 180.1, 181.0] {
+            let angle_rad = angle_deg.to_radians();
+            // Pure X, Y, Z rotations via Euler (a=Z, b=Y, c=X)
+            let euler_configs = [
+                (0.0, 0.0, angle_rad),   // X
+                (0.0, angle_rad, 0.0),   // Y
+                (angle_rad, 0.0, 0.0),   // Z
+            ];
+            for (a, b, c) in euler_configs {
+                let mat = RotationMatrix::from(EulerAngles::new(a, b, c, seq));
+                let q = Quaternion::from(mat);
+                let q_via_euler = Quaternion::from(EulerAngles::new(a, b, c, seq));
+                assert_quat_same_rotation(&q, &q_via_euler, TOL_NEAR_180);
+                assert_matrix_equals_quat(&mat, &q, TOL_NEAR_180);
+            }
+        }
+    }
+
+    /// Sweep over many axis-angle rotations to ensure all branches behave correctly.
+    #[test]
+    fn matrix_to_quat_axis_angle_sweep() {
+        let axes = [(1.0_f32, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)];
+        let angles: Vec<f32> = (0..=36)
+            .map(|i| (i as f32) * std::f32::consts::PI / 18.0)
+            .chain([std::f32::consts::PI - 0.01, std::f32::consts::PI, std::f32::consts::PI + 0.01])
+            .collect();
+        for (ax, ay, az) in axes {
+            for &angle in &angles {
+                let aa = AxisAngle::new(ax, ay, az, angle);
+                let q_orig = Quaternion::from(aa);
+                let mat = RotationMatrix::from(q_orig);
+                let q_reconstructed = Quaternion::from(mat);
+                let tol = if (angle - std::f32::consts::PI).abs() < 0.1 {
+                    TOL_NEAR_180
+                } else {
+                    TOL
+                };
+                assert_quat_same_rotation(&q_reconstructed, &q_orig, tol);
+                assert_matrix_equals_quat(&mat, &q_reconstructed, tol);
+            }
+        }
+    }
+
+    /// Arbitrary rotations via Euler angles to hit all four branches of the conversion.
+    #[test]
+    fn matrix_to_quat_euler_sweep() {
+        let seq = EulerSequence::ZYX_xyz;
+        for a in [0.0, 0.5, 1.0, 2.0, std::f32::consts::PI] {
+            for b in [0.0, 0.3, 0.8, std::f32::consts::FRAC_PI_2, std::f32::consts::PI] {
+                for c in [0.0, 0.2, 1.5] {
+                    let e = EulerAngles::new(a, b, c, seq);
+                    let q_orig = Quaternion::from(e);
+                    let mat = RotationMatrix::from(q_orig);
+                    let q_reconstructed = Quaternion::from(mat);
+                    assert_quat_same_rotation(&q_reconstructed, &q_orig, TOL);
+                }
+            }
+        }
     }
 }
 
