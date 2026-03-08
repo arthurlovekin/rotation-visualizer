@@ -409,16 +409,16 @@ fn App(
         <QuaternionBox rotation=rotation format=format active_input=active_input />
         <RotationMatrixBox rotation=rotation format=matrix_format active_input=active_input />
         <EulerAnglesBox rotation=rotation format=format active_input=active_input />
-        <CollapsibleSection title="Attributions" initial_expanded=false>
+        <CollapsibleSection title="Asset Attributions" initial_expanded=false>
             <div class="attributions">
                 <ul>
-                    <li>"Cow — Viewpoint Animation Engineering / Sun Microsystems"</li>
                     <li>
-                        "Space Shuttle — "
-                        <a href="https://www.cgtrader.com/margetacg" target="_blank">
-                            "MargetaCG on CGTrader"
+                        "Airplane — "
+                        <a href="https://www.cgtrader.com/designers/we3d1234?utm_source=credit&utm_source=credit_item_page" target="_blank">
+                            "we3d1234 on CGTrader"
                         </a>
                     </li>
+                    <li>"Cow — Viewpoint Animation Engineering / Sun Microsystems"</li>
                     <li>
                         "Stanford Bunny — "
                         <a href="https://graphics.stanford.edu/data/3Dscanrep/" target="_blank">
