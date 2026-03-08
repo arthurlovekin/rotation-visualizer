@@ -38,7 +38,7 @@ const ASSETS: &[AssetDef] = &[
     AssetDef { label: "Cow",              obj_path: "assets/cow.obj",             mtl_path: None },
     AssetDef { label: "Stanford Bunny",   obj_path: "assets/stanford-bunny.obj",  mtl_path: None },
     AssetDef { label: "Teapot",           obj_path: "assets/teapot.obj",          mtl_path: None },
-    AssetDef { label: "Space Shuttle",    obj_path: "assets/space_shuttle_low_poly.obj", mtl_path: Some("assets/space_shuttle_low_poly.mtl") },
+    AssetDef { label: "Space Shuttle",    obj_path: "assets/space_shuttle.obj",         mtl_path: Some("assets/space_shuttle.mtl") },
 ];
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
@@ -780,5 +780,29 @@ pub fn main() {
         .forget();
 
         run_three_d(rotation_for_renderer);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ASSETS;
+    use std::path::Path;
+
+    #[test]
+    fn all_asset_files_exist() {
+        for asset in ASSETS {
+            assert!(
+                Path::new(asset.obj_path).exists(),
+                "Missing obj file: {}",
+                asset.obj_path
+            );
+            if let Some(mtl) = asset.mtl_path {
+                assert!(
+                    Path::new(mtl).exists(),
+                    "Missing mtl file: {}",
+                    mtl
+                );
+            }
+        }
     }
 }
