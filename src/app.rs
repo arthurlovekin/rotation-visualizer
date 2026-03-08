@@ -29,6 +29,19 @@ use rotation_vector::RotationVectorBox;
 use rotation::Rotation;
 use slider_widget::{CustomSliderConfig, SliderMarker};
 
+#[derive(Clone, Copy)]
+struct VisibilityFlags {
+    global_axes: bool,
+    local_axes: bool,
+    fixed_mesh: bool,
+    axis_angle: bool,
+}
+impl Default for VisibilityFlags {
+    fn default() -> Self {
+        Self { global_axes: true, local_axes: false, fixed_mesh: false, axis_angle: false }
+    }
+}
+
 struct AssetDef {
     label: &'static str,
     obj_path: &'static str,
@@ -285,6 +298,7 @@ fn App(
     #[prop(optional)] rotation_for_renderer: Option<Rc<RefCell<Rotation>>>,
     #[prop(optional)] request_redraw: Option<RequestRedraw>,
     #[prop(optional)] pending_asset: Option<Rc<RefCell<Option<usize>>>>,
+    #[prop(optional)] visibility_flags: Option<Rc<RefCell<VisibilityFlags>>>,
 ) -> impl IntoView {
     let rotation = RwSignal::new(Rotation::default());
     let format = RwSignal::new(VectorFormat::default());
@@ -316,6 +330,38 @@ fn App(
     // Wrap non-Send Rc values in StoredValue so the closure can be used in Leptos children.
     let pending_asset_sv = StoredValue::new_local(pending_asset);
     let request_redraw_sv = StoredValue::new_local(request_redraw.clone());
+    let visibility_flags_sv = StoredValue::new_local(visibility_flags);
+
+    // Visibility toggle signals (initialized to defaults matching VisibilityFlags::default())
+    let show_global_axes = RwSignal::new(true);
+    let show_local_axes = RwSignal::new(false);
+    let show_fixed_mesh = RwSignal::new(false);
+    let show_axis_angle = RwSignal::new(false);
+
+    let make_checkbox_handler = move |sig: RwSignal<bool>, update_fn: fn(&mut VisibilityFlags, bool)| {
+        move |ev: leptos::ev::Event| {
+            use leptos::wasm_bindgen::JsCast;
+            let checked = ev
+                .target()
+                .and_then(|t| t.dyn_into::<leptos::web_sys::HtmlInputElement>().ok())
+                .map(|el| el.checked())
+                .unwrap_or(false);
+            sig.set(checked);
+            visibility_flags_sv.with_value(|vf| {
+                if let Some(vf) = vf {
+                    update_fn(&mut vf.borrow_mut(), checked);
+                }
+            });
+            request_redraw_sv.with_value(|r| {
+                if let Some(r) = r { r(); }
+            });
+        }
+    };
+
+    let on_global_axes_change = make_checkbox_handler(show_global_axes, |f, v| { f.global_axes = v; });
+    let on_local_axes_change  = make_checkbox_handler(show_local_axes,  |f, v| { f.local_axes  = v; });
+    let on_fixed_mesh_change  = make_checkbox_handler(show_fixed_mesh,  |f, v| { f.fixed_mesh  = v; });
+    let on_axis_angle_change  = make_checkbox_handler(show_axis_angle,  |f, v| { f.axis_angle  = v; });
 
     let on_asset_change = move |ev: leptos::ev::Event| {
         use leptos::wasm_bindgen::JsCast;
@@ -350,6 +396,12 @@ fn App(
                         <option value={i.to_string()}>{a.label}</option>
                     }).collect::<Vec<_>>()}
                 </select>
+                <div class="visibility-checkboxes">
+                    <label><input type="checkbox" checked=show_global_axes on:change=on_global_axes_change />" Global axes"</label>
+                    <label><input type="checkbox" checked=show_local_axes on:change=on_local_axes_change />" Local axes"</label>
+                    <label><input type="checkbox" checked=show_fixed_mesh on:change=on_fixed_mesh_change />" Fixed mesh"</label>
+                    <label><input type="checkbox" checked=show_axis_angle on:change=on_axis_angle_change />" Axis-angle"</label>
+                </div>
             </div>
         </CollapsibleSection>
         <AxisAngleBox rotation=rotation format=format active_input=active_input />
@@ -526,6 +578,7 @@ fn run_three_d(
     request_redraw: RequestRedraw,
     event_loop: winit::event_loop::EventLoop<()>,
     pending_asset: Rc<RefCell<Option<usize>>>,
+    visibility_flags: Rc<RefCell<VisibilityFlags>>,
 ) {
     use three_d::*;
     use winit::event::{Event, WindowEvent};
@@ -722,26 +775,17 @@ fn run_three_d(
 
                     axis_angle_flag.update(&rot.as_axis_angle());
 
+                    let flags = *visibility_flags.borrow();
                     let mut mesh_borrow = mesh_objects.borrow_mut();
-                    let objects: Vec<&dyn Object> = match &mut *mesh_borrow {
-                        Some((model_unrotated, model_rotated)) => {
-                            model_rotated.geometry.set_transformation(rot_mat);
-                            vec![
-                                &*model_unrotated,
-                                &*model_rotated,
-                                &axes,
-                                &axes_body,
-                                axis_angle_flag.pole(),
-                                axis_angle_flag.flag(),
-                            ]
-                        }
-                        None => vec![
-                            &axes,
-                            &axes_body,
-                            axis_angle_flag.pole(),
-                            axis_angle_flag.flag(),
-                        ],
-                    };
+                    let mut objects: Vec<&dyn Object> = Vec::new();
+                    if flags.global_axes { objects.push(&axes); }
+                    if flags.local_axes  { objects.push(&axes_body); }
+                    if flags.axis_angle  { objects.push(axis_angle_flag.pole()); objects.push(axis_angle_flag.flag()); }
+                    if let Some((model_unrotated, model_rotated)) = &mut *mesh_borrow {
+                        model_rotated.geometry.set_transformation(rot_mat);
+                        if flags.fixed_mesh { objects.push(&*model_unrotated); }
+                        objects.push(&*model_rotated);
+                    }
                     frame_input
                         .screen()
                         .clear(ClearState::color_and_depth(0.051, 0.051, 0.094, 1.0, 1.0))
@@ -799,13 +843,15 @@ pub fn main() {
         let request_redraw_for_app = request_redraw.clone();
         let pending_asset: Rc<RefCell<Option<usize>>> = Rc::new(RefCell::new(None));
         let pending_asset_for_app = pending_asset.clone();
+        let visibility_flags: Rc<RefCell<VisibilityFlags>> = Rc::new(RefCell::new(VisibilityFlags::default()));
+        let visibility_flags_for_app = visibility_flags.clone();
 
         mount_to(leptos_root, move || {
-            view! { <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() pending_asset=pending_asset_for_app.clone() /> }
+            view! { <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() pending_asset=pending_asset_for_app.clone() visibility_flags=visibility_flags_for_app.clone() /> }
         })
         .forget();
 
-        run_three_d(rotation_for_renderer, request_redraw, event_loop, pending_asset);
+        run_three_d(rotation_for_renderer, request_redraw, event_loop, pending_asset, visibility_flags);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
