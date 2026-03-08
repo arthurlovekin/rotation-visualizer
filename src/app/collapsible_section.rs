@@ -7,10 +7,13 @@ use leptos::prelude::*;
 pub fn CollapsibleSection(
     /// Section title (e.g. "Axis-Angle", "Quaternion").
     title: &'static str,
+    /// Whether the section starts expanded (default: true).
+    #[prop(default = true)]
+    initial_expanded: bool,
     /// Content to show/hide. Wrapped in a div when visible.
     children: Children,
 ) -> impl IntoView {
-    let expanded = RwSignal::new(true);
+    let expanded = RwSignal::new(initial_expanded);
 
     view! {
         <div class="control-section">

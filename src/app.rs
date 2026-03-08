@@ -21,12 +21,27 @@ mod slider_widget;
 
 use axis_angle::AxisAngleBox;
 use euler_angles::EulerAnglesBox;
+use collapsible_section::CollapsibleSection;
 use format::{MatrixFormat, VectorFormat};
 use quaternion::QuaternionBox;
 use rotation_matrix::RotationMatrixBox;
 use rotation_vector::RotationVectorBox;
 use rotation::Rotation;
 use slider_widget::{CustomSliderConfig, SliderMarker};
+
+struct AssetDef {
+    label: &'static str,
+    obj_path: &'static str,
+    mtl_path: Option<&'static str>,
+}
+
+const ASSETS: &[AssetDef] = &[
+    AssetDef { label: "Suzanne (Monkey)", obj_path: "assets/suzanne_monkey.obj", mtl_path: Some("assets/suzanne_monkey.mtl") },
+    AssetDef { label: "Cow",              obj_path: "assets/cow.obj",             mtl_path: None },
+    AssetDef { label: "Stanford Bunny",   obj_path: "assets/stanford-bunny.obj",  mtl_path: None },
+    AssetDef { label: "Teapot",           obj_path: "assets/teapot.obj",          mtl_path: None },
+    AssetDef { label: "Space Shuttle",    obj_path: "assets/space_shuttle.obj",         mtl_path: Some("assets/space_shuttle.mtl") },
+];
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
 impl CustomSliderConfig {
@@ -269,6 +284,7 @@ fn setup_resize_handle(request_redraw: RequestRedraw) {
 fn App(
     #[prop(optional)] rotation_for_renderer: Option<Rc<RefCell<Rotation>>>,
     #[prop(optional)] request_redraw: Option<RequestRedraw>,
+    #[prop(optional)] pending_asset: Option<Rc<RefCell<Option<usize>>>>,
 ) -> impl IntoView {
     let rotation = RwSignal::new(Rotation::default());
     let format = RwSignal::new(VectorFormat::default());
@@ -297,13 +313,71 @@ fn App(
         });
     }
 
+    // Wrap non-Send Rc values in StoredValue so the closure can be used in Leptos children.
+    let pending_asset_sv = StoredValue::new_local(pending_asset);
+    let request_redraw_sv = StoredValue::new_local(request_redraw.clone());
+
+    let on_asset_change = move |ev: leptos::ev::Event| {
+        use leptos::wasm_bindgen::JsCast;
+        let target = ev
+            .target()
+            .and_then(|t| t.dyn_into::<leptos::web_sys::HtmlSelectElement>().ok());
+        if let Some(select) = target {
+            let val = select.value();
+            if let Ok(idx) = val.parse::<usize>() {
+                pending_asset_sv.with_value(|pa| {
+                    if let Some(pa) = pa {
+                        *pa.borrow_mut() = Some(idx);
+                    }
+                });
+                request_redraw_sv.with_value(|r| {
+                    if let Some(r) = r {
+                        r();
+                    }
+                });
+            }
+        }
+    };
+
     view! {
         <h1>"Rotation Visualizer"</h1>
+        <CollapsibleSection title="Graphics">
+            <div class="graphics-controls">
+                <label for="asset-select">"Model: "</label>
+                <select id="asset-select" on:change=on_asset_change>
+                    <option value="">"-- none --"</option>
+                    {ASSETS.iter().enumerate().map(|(i, a)| view! {
+                        <option value={i.to_string()}>{a.label}</option>
+                    }).collect::<Vec<_>>()}
+                </select>
+            </div>
+        </CollapsibleSection>
         <AxisAngleBox rotation=rotation format=format active_input=active_input />
         <RotationVectorBox rotation=rotation format=format active_input=active_input />
         <QuaternionBox rotation=rotation format=format active_input=active_input />
         <RotationMatrixBox rotation=rotation format=matrix_format active_input=active_input />
         <EulerAnglesBox rotation=rotation format=format active_input=active_input />
+        <CollapsibleSection title="Attributions" initial_expanded=false>
+            <div class="attributions">
+                <ul>
+                    <li>"Cow — Viewpoint Animation Engineering / Sun Microsystems"</li>
+                    <li>
+                        "Space Shuttle — "
+                        <a href="https://www.cgtrader.com/margetacg" target="_blank">
+                            "MargetaCG on CGTrader"
+                        </a>
+                    </li>
+                    <li>
+                        "Stanford Bunny — "
+                        <a href="https://graphics.stanford.edu/data/3Dscanrep/" target="_blank">
+                            "Stanford Computer Graphics Laboratory"
+                        </a>
+                    </li>
+                    <li>"Suzanne Monkey — Blender"</li>
+                    <li>"Teapot — Utah Teapot by Martin Newell"</li>
+                </ul>
+            </div>
+        </CollapsibleSection>
     }
 }
 
@@ -312,9 +386,12 @@ fn App(
 // ---------------------------------------------------------------------------
 
 /// Build edge transformations for wireframe rendering (cylinders along each mesh edge).
+/// Returns empty Instances if the mesh has no indexed triangles.
 fn edge_transformations(cpu_mesh: &three_d::CpuMesh) -> three_d::Instances {
     use three_d::*;
-    let indices = cpu_mesh.indices.to_u32().unwrap();
+    let Some(indices) = cpu_mesh.indices.to_u32() else {
+        return Instances { transformations: vec![], ..Default::default() };
+    };
     let positions = cpu_mesh.positions.to_f32();
     let mut transformations = Vec::new();
     for f in 0..indices.len() / 3 {
@@ -390,6 +467,17 @@ fn rotation_to_mat4(rot: &Rotation) -> three_d::Mat4 {
     )
 }
 
+/// Compute a uniform scale factor so the mesh fits within a radius of ~1.5 units.
+fn normalize_scale(cpu_mesh: &three_d::CpuMesh) -> f32 {
+    use three_d::InnerSpace;
+    let positions = cpu_mesh.positions.to_f32();
+    let max_extent = positions
+        .iter()
+        .map(|p| p.magnitude())
+        .fold(0.0_f32, f32::max);
+    if max_extent > 0.0 { 1.5 / max_extent } else { 1.0 }
+}
+
 /// Load assets in WASM using gloo-net fetch (three-d-asset's load_async uses reqwest which doesn't work on WASM).
 #[cfg(target_arch = "wasm32")]
 async fn load_assets_wasm(
@@ -437,6 +525,7 @@ fn run_three_d(
     rotation_for_renderer: Rc<RefCell<Rotation>>,
     request_redraw: RequestRedraw,
     event_loop: winit::event_loop::EventLoop<()>,
+    pending_asset: Rc<RefCell<Option<usize>>>,
 ) {
     use three_d::*;
     use winit::event::{Event, WindowEvent};
@@ -477,68 +566,11 @@ fn run_three_d(
 
         let mut frame_input_generator = FrameInputGenerator::from_winit_window(&window);
 
-        // Load suzanne_monkey mesh (async)
-        let mut mesh_objects: Option<(
+        let ctx: three_d::Context = (*gl).clone();
+        let mesh_objects: Rc<RefCell<Option<(
             Gm<InstancedMesh, PhysicalMaterial>,
             Gm<Mesh, PhysicalMaterial>,
-        )> = match load_assets_wasm(&["assets/suzanne_monkey.obj", "assets/suzanne_monkey.mtl"])
-            .await
-        {
-            Ok(mut loaded) => {
-                match loaded.deserialize::<three_d::CpuMesh>("assets/suzanne_monkey.obj") {
-                    Ok(mut cpu_mesh) => {
-                        let scale = 1.5;
-                        if let Err(e) = cpu_mesh.transform(three_d::Mat4::from_scale(scale)) {
-                            log::warn!("Mesh transform failed: {:?}", e);
-                        }
-
-                        let mut wireframe_material = PhysicalMaterial::new_transparent(
-                            &gl,
-                            &CpuMaterial {
-                                albedo: Srgba::new(153, 153, 153, 128),
-                                roughness: 0.7,
-                                metallic: 0.3,
-                                ..Default::default()
-                            },
-                        );
-                        wireframe_material.render_states.cull = Cull::Back;
-
-                        let mut cylinder = CpuMesh::cylinder(10);
-                        cylinder
-                            .transform(three_d::Mat4::from_nonuniform_scale(1.0, 0.007, 0.007))
-                            .expect("cylinder transform");
-                        let wireframe_unrotated = Gm::new(
-                            InstancedMesh::new(&gl, &edge_transformations(&cpu_mesh), &cylinder),
-                            wireframe_material,
-                        );
-
-                        let mut white_material = PhysicalMaterial::new_opaque(
-                            &gl,
-                            &CpuMaterial {
-                                albedo: Srgba::new_opaque(220, 220, 220),
-                                roughness: 0.7,
-                                metallic: 0.3,
-                                ..Default::default()
-                            },
-                        );
-                        white_material.render_states.cull = Cull::Back;
-
-                        let mut mesh_rotated = Mesh::new(&gl, &cpu_mesh);
-                        mesh_rotated.set_transformation(three_d::Mat4::identity());
-
-                        Some((wireframe_unrotated, Gm::new(mesh_rotated, white_material)))
-                    }
-                    Err(e) => {
-                        log::error!("Failed to deserialize suzanne_monkey.obj: {:?}", e);
-                        None
-                    }
-                }
-            }
-            Err(e) => {
-                log::error!("Failed to load assets (check assets/ in dist): {:?}", e);
-                None
-            }
-        };
+        )>>> = Rc::new(RefCell::new(None));
 
         let (w, h): (u32, u32) = window.inner_size().into();
         let viewport = Viewport::new_at_origo(w, h);
@@ -566,7 +598,75 @@ fn run_three_d(
         event_loop.run(move |event, _, control_flow| {
             match &event {
                 Event::UserEvent(()) => {
-                    // Rotation changed from Leptos - request a redraw
+                    // Check for a pending asset load request from the UI
+                    if let Some(idx) = pending_asset.borrow_mut().take() {
+                        let mesh_objects = mesh_objects.clone();
+                        let ctx = ctx.clone();
+                        let request_redraw = request_redraw.clone();
+                        wasm_bindgen_futures::spawn_local(async move {
+                            let asset = &ASSETS[idx];
+                            let mut paths: Vec<&str> = vec![asset.obj_path];
+                            if let Some(mtl) = asset.mtl_path {
+                                paths.push(mtl);
+                            }
+                            match load_assets_wasm(&paths).await {
+                                Ok(mut loaded) => {
+                                    match loaded.deserialize::<three_d::CpuMesh>(asset.obj_path) {
+                                        Ok(mut cpu_mesh) => {
+                                            let scale = normalize_scale(&cpu_mesh);
+                                            if let Err(e) = cpu_mesh.transform(three_d::Mat4::from_scale(scale)) {
+                                                log::warn!("Mesh transform failed: {:?}", e);
+                                            }
+
+                                            let mut wireframe_material = PhysicalMaterial::new_transparent(
+                                                &ctx,
+                                                &CpuMaterial {
+                                                    albedo: Srgba::new(153, 153, 153, 128),
+                                                    roughness: 0.7,
+                                                    metallic: 0.3,
+                                                    ..Default::default()
+                                                },
+                                            );
+                                            wireframe_material.render_states.cull = Cull::Back;
+
+                                            let mut cylinder = CpuMesh::cylinder(10);
+                                            cylinder
+                                                .transform(three_d::Mat4::from_nonuniform_scale(1.0, 0.007, 0.007))
+                                                .expect("cylinder transform");
+                                            let wireframe_unrotated = Gm::new(
+                                                InstancedMesh::new(&ctx, &edge_transformations(&cpu_mesh), &cylinder),
+                                                wireframe_material,
+                                            );
+
+                                            let mut white_material = PhysicalMaterial::new_opaque(
+                                                &ctx,
+                                                &CpuMaterial {
+                                                    albedo: Srgba::new_opaque(220, 220, 220),
+                                                    roughness: 0.7,
+                                                    metallic: 0.3,
+                                                    ..Default::default()
+                                                },
+                                            );
+                                            white_material.render_states.cull = Cull::Back;
+
+                                            let mut mesh_rotated = Mesh::new(&ctx, &cpu_mesh);
+                                            mesh_rotated.set_transformation(three_d::Mat4::identity());
+
+                                            *mesh_objects.borrow_mut() = Some((wireframe_unrotated, Gm::new(mesh_rotated, white_material)));
+                                            request_redraw();
+                                        }
+                                        Err(e) => {
+                                            log::error!("Failed to deserialize {}: {:?}", asset.obj_path, e);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to load asset {}: {:?}", asset.obj_path, e);
+                                }
+                            }
+                        });
+                    }
+                    // Rotation changed from Leptos or asset loaded - request a redraw
                     window.request_redraw();
                 }
                 Event::MainEventsCleared => {
@@ -622,7 +722,8 @@ fn run_three_d(
 
                     axis_angle_flag.update(&rot.as_axis_angle());
 
-                    let objects: Vec<&dyn Object> = match &mut mesh_objects {
+                    let mut mesh_borrow = mesh_objects.borrow_mut();
+                    let objects: Vec<&dyn Object> = match &mut *mesh_borrow {
                         Some((model_unrotated, model_rotated)) => {
                             model_rotated.geometry.set_transformation(rot_mat);
                             vec![
@@ -677,8 +778,7 @@ fn run_three_d(
 
 #[cfg(not(target_arch = "wasm32"))]
 fn run_three_d(_rotation_for_renderer: Rc<RefCell<Rotation>>) {
-    // Native build: synchronous loading, no spawn_local needed
-    unimplemented!("suzanne_monkey visualization is WASM-only for now; use trunk serve");
+    unimplemented!("3D visualization is WASM-only; use trunk serve");
 }
 
 pub fn main() {
@@ -697,13 +797,15 @@ pub fn main() {
         let request_redraw: RequestRedraw = Rc::new(move || { let _ = redraw_proxy.send_event(()); });
         let rotation_for_app = rotation_for_renderer.clone();
         let request_redraw_for_app = request_redraw.clone();
+        let pending_asset: Rc<RefCell<Option<usize>>> = Rc::new(RefCell::new(None));
+        let pending_asset_for_app = pending_asset.clone();
 
         mount_to(leptos_root, move || {
-            view! { <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() /> }
+            view! { <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() pending_asset=pending_asset_for_app.clone() /> }
         })
         .forget();
 
-        run_three_d(rotation_for_renderer, request_redraw, event_loop);
+        run_three_d(rotation_for_renderer, request_redraw, event_loop, pending_asset);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -715,5 +817,29 @@ pub fn main() {
         .forget();
 
         run_three_d(rotation_for_renderer);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ASSETS;
+    use std::path::Path;
+
+    #[test]
+    fn all_asset_files_exist() {
+        for asset in ASSETS {
+            assert!(
+                Path::new(asset.obj_path).exists(),
+                "Missing obj file: {}",
+                asset.obj_path
+            );
+            if let Some(mtl) = asset.mtl_path {
+                assert!(
+                    Path::new(mtl).exists(),
+                    "Missing mtl file: {}",
+                    mtl
+                );
+            }
+        }
     }
 }
