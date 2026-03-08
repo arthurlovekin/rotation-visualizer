@@ -164,24 +164,6 @@ pub enum EulerSequence {
 }
 
 impl EulerSequence {
-    /// Intrinsic uppercase string (e.g. "XYZ"). Used as dropdown option value.
-    pub fn intrinsic_str(&self) -> &'static str {
-        match self {
-            Self::XYZ_zyx => "XYZ",
-            Self::XZY_yzx => "XZY",
-            Self::YXZ_zxy => "YXZ",
-            Self::YZX_xzy => "YZX",
-            Self::ZXY_yxz => "ZXY",
-            Self::ZYX_xyz => "ZYX",
-            Self::XYX_xyx => "XYX",
-            Self::XZX_xzx => "XZX",
-            Self::YXY_yxy => "YXY",
-            Self::YZY_yzy => "YZY",
-            Self::ZXZ_zxz => "ZXZ",
-            Self::ZYZ_zyz => "ZYZ",
-        }
-    }
-
     /// Human-readable label for dropdown, e.g. "XYZ (intrinsic) = zyx (extrinsic)".
     pub fn display_name(&self) -> &'static str {
         match self {

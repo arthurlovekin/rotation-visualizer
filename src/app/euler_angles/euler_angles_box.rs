@@ -92,7 +92,7 @@ pub fn EulerAnglesBox(
             .unwrap()
             .unchecked_into::<HtmlSelectElement>()
             .value();
-        if let Ok(seq) = EulerSequence::from_string(&value) {
+        if let Some(seq) = ALL_SEQUENCES.iter().find(|s| s.display_name() == value.as_str()).copied() {
             sequence.set(seq);
         }
     };
@@ -119,11 +119,11 @@ pub fn EulerAnglesBox(
             <div class="convention-row">
                 "Sequence: "
                 <select
-                    prop:value=move || sequence.get().intrinsic_str()
+                    prop:value=move || sequence.get().display_name()
                     on:change=on_sequence_change
                 >
                     {ALL_SEQUENCES.iter().map(|seq| view! {
-                        <option value=seq.intrinsic_str()>{seq.display_name()}</option>
+                        <option value=seq.display_name()>{seq.display_name()}</option>
                     }).collect::<Vec<_>>()}
                 </select>
             </div>

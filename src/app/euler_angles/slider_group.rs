@@ -16,6 +16,24 @@ use crate::app::slider_widget::{CustomSlider, CustomSliderConfig};
 
 const WRAP_THRESHOLD: f64 = 0.05;
 
+/// Returns θ-prefixed axis labels [a, b, c] for the given sequence.
+fn euler_axis_labels(seq: EulerSequence) -> [&'static str; 3] {
+    match seq {
+        EulerSequence::XYZ_zyx => ["θX", "θY", "θZ"],
+        EulerSequence::XZY_yzx => ["θX", "θZ", "θY"],
+        EulerSequence::YXZ_zxy => ["θY", "θX", "θZ"],
+        EulerSequence::YZX_xzy => ["θY", "θZ", "θX"],
+        EulerSequence::ZXY_yxz => ["θZ", "θX", "θY"],
+        EulerSequence::ZYX_xyz => ["θZ", "θY", "θX"],
+        EulerSequence::XYX_xyx => ["θX", "θY", "θX"],
+        EulerSequence::XZX_xzx => ["θX", "θZ", "θX"],
+        EulerSequence::YXY_yxy => ["θY", "θX", "θY"],
+        EulerSequence::YZY_yzy => ["θY", "θZ", "θY"],
+        EulerSequence::ZXZ_zxz => ["θZ", "θX", "θZ"],
+        EulerSequence::ZYZ_zyz => ["θZ", "θY", "θZ"],
+    }
+}
+
 fn is_wrapped_2pi(simplified_rad: f64, slider: f64, use_deg: bool) -> bool {
     let slider_rad = if use_deg { slider.to_radians() } else { slider };
     let diff = simplified_rad - slider_rad;
@@ -161,7 +179,7 @@ pub fn EulerAnglesSliderGroup(
             <div class="vector-sliders" style="display: flex; flex-direction: column;">
                 <div style="order: 0;">
                     <CustomSlider
-                        label="a"
+                        label=move || euler_axis_labels(sequence.get())[0]
                         config=config_rad.clone()
                         value=angle_a
                         dual_value=simplified_a_rad
@@ -170,7 +188,7 @@ pub fn EulerAnglesSliderGroup(
                 </div>
                 <div style="order: 1;">
                     <CustomSlider
-                        label="b"
+                        label=move || euler_axis_labels(sequence.get())[1]
                         config=config_rad.clone()
                         value=angle_b
                         dual_value=simplified_b_rad
@@ -179,7 +197,7 @@ pub fn EulerAnglesSliderGroup(
                 </div>
                 <div style="order: 2;">
                     <CustomSlider
-                        label="c"
+                        label=move || euler_axis_labels(sequence.get())[2]
                         config=config_rad.clone()
                         value=angle_c
                         dual_value=simplified_c_rad
@@ -192,7 +210,7 @@ pub fn EulerAnglesSliderGroup(
             <div class="vector-sliders" style="display: flex; flex-direction: column;">
                 <div style="order: 0;">
                     <CustomSlider
-                        label="a"
+                        label=move || euler_axis_labels(sequence.get())[0]
                         config=config_deg.clone()
                         value=angle_a
                         dual_value=simplified_a_deg
@@ -201,7 +219,7 @@ pub fn EulerAnglesSliderGroup(
                 </div>
                 <div style="order: 1;">
                     <CustomSlider
-                        label="b"
+                        label=move || euler_axis_labels(sequence.get())[1]
                         config=config_deg.clone()
                         value=angle_b
                         dual_value=simplified_b_deg
@@ -210,7 +228,7 @@ pub fn EulerAnglesSliderGroup(
                 </div>
                 <div style="order: 2;">
                     <CustomSlider
-                        label="c"
+                        label=move || euler_axis_labels(sequence.get())[2]
                         config=config_deg.clone()
                         value=angle_c
                         dual_value=simplified_c_deg

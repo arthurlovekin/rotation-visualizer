@@ -184,7 +184,8 @@ fn format_value_4ch_3sig(v: f64) -> String {
 #[component]
 pub fn CustomSlider(
     /// Label shown above the slider.
-    label: &'static str,
+    #[prop(into)]
+    label: TextProp,
     /// Slider configuration (min, max, markers).
     config: CustomSliderConfig,
     /// The handle's value, stored in this signal.
@@ -215,7 +216,7 @@ pub fn CustomSlider(
         <>
             {inject_styles.then(|| view! { <style>{SLIDER_CSS}</style> })}
             <div class="custom-slider">
-            <label class="slider-label">{label}</label>
+            <label class="slider-label">{move || label.get()}</label>
             <div class="slider-track-container">
                 <div class="slider-track" node_ref=track_ref>
                     {markers.iter().map(|m| {
