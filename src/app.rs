@@ -393,7 +393,7 @@ fn App(
                 <select id="asset-select" on:change=on_asset_change>
                     <option value="">"-- none --"</option>
                     {ASSETS.iter().enumerate().map(|(i, a)| view! {
-                        <option value={i.to_string()}>{a.label}</option>
+                        <option value={i.to_string()} selected={i == 0}>{a.label}</option>
                     }).collect::<Vec<_>>()}
                 </select>
                 <div class="visibility-checkboxes">
@@ -841,7 +841,7 @@ pub fn main() {
         let request_redraw: RequestRedraw = Rc::new(move || { let _ = redraw_proxy.send_event(()); });
         let rotation_for_app = rotation_for_renderer.clone();
         let request_redraw_for_app = request_redraw.clone();
-        let pending_asset: Rc<RefCell<Option<usize>>> = Rc::new(RefCell::new(None));
+        let pending_asset: Rc<RefCell<Option<usize>>> = Rc::new(RefCell::new(Some(0)));
         let pending_asset_for_app = pending_asset.clone();
         let visibility_flags: Rc<RefCell<VisibilityFlags>> = Rc::new(RefCell::new(VisibilityFlags::default()));
         let visibility_flags_for_app = visibility_flags.clone();
