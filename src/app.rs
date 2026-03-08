@@ -36,11 +36,9 @@ struct AssetDef {
 const ASSETS: &[AssetDef] = &[
     AssetDef { label: "Suzanne (Monkey)", obj_path: "assets/suzanne_monkey.obj", mtl_path: Some("assets/suzanne_monkey.mtl") },
     AssetDef { label: "Cow",              obj_path: "assets/cow.obj",             mtl_path: None },
-    AssetDef { label: "Lucy",             obj_path: "assets/lucy.obj",            mtl_path: None },
     AssetDef { label: "Stanford Bunny",   obj_path: "assets/stanford-bunny.obj",  mtl_path: None },
     AssetDef { label: "Teapot",           obj_path: "assets/teapot.obj",          mtl_path: None },
     AssetDef { label: "Space Shuttle",    obj_path: "assets/space_shuttle_low_poly.obj", mtl_path: Some("assets/space_shuttle_low_poly.mtl") },
-    AssetDef { label: "Dragon",           obj_path: "assets/xyzrgb_dragon.obj",   mtl_path: None },
 ];
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
@@ -327,12 +325,6 @@ fn App(
                 <ul>
                     <li>"Cow — Viewpoint Animation Engineering / Sun Microsystems"</li>
                     <li>
-                        "Lucy — "
-                        <a href="https://graphics.stanford.edu/data/3Dscanrep/" target="_blank">
-                            "Stanford Computer Graphics Laboratory"
-                        </a>
-                    </li>
-                    <li>
                         "Space Shuttle — "
                         <a href="https://www.cgtrader.com/margetacg" target="_blank">
                             "MargetaCG on CGTrader"
@@ -346,12 +338,6 @@ fn App(
                     </li>
                     <li>"Suzanne Monkey — Blender"</li>
                     <li>"Teapot — Utah Teapot by Martin Newell"</li>
-                    <li>
-                        "Dragon — "
-                        <a href="https://graphics.stanford.edu/data/3Dscanrep/" target="_blank">
-                            "Stanford Computer Graphics Laboratory"
-                        </a>
-                    </li>
                 </ul>
             </div>
         </CollapsibleSection>
