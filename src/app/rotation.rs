@@ -164,6 +164,42 @@ pub enum EulerSequence {
 }
 
 impl EulerSequence {
+    /// Intrinsic uppercase string (e.g. "XYZ"). Used as dropdown option value.
+    pub fn intrinsic_str(&self) -> &'static str {
+        match self {
+            Self::XYZ_zyx => "XYZ",
+            Self::XZY_yzx => "XZY",
+            Self::YXZ_zxy => "YXZ",
+            Self::YZX_xzy => "YZX",
+            Self::ZXY_yxz => "ZXY",
+            Self::ZYX_xyz => "ZYX",
+            Self::XYX_xyx => "XYX",
+            Self::XZX_xzx => "XZX",
+            Self::YXY_yxy => "YXY",
+            Self::YZY_yzy => "YZY",
+            Self::ZXZ_zxz => "ZXZ",
+            Self::ZYZ_zyz => "ZYZ",
+        }
+    }
+
+    /// Human-readable label for dropdown, e.g. "XYZ (intrinsic) = zyx (extrinsic)".
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::XYZ_zyx => "XYZ (intrinsic) = zyx (extrinsic)",
+            Self::XZY_yzx => "XZY (intrinsic) = yzx (extrinsic)",
+            Self::YXZ_zxy => "YXZ (intrinsic) = zxy (extrinsic)",
+            Self::YZX_xzy => "YZX (intrinsic) = xzy (extrinsic)",
+            Self::ZXY_yxz => "ZXY (intrinsic) = yxz (extrinsic)",
+            Self::ZYX_xyz => "ZYX (intrinsic) = xyz (extrinsic)",
+            Self::XYX_xyx => "XYX (intrinsic) = xyx (extrinsic)",
+            Self::XZX_xzx => "XZX (intrinsic) = xzx (extrinsic)",
+            Self::YXY_yxy => "YXY (intrinsic) = yxy (extrinsic)",
+            Self::YZY_yzy => "YZY (intrinsic) = yzy (extrinsic)",
+            Self::ZXZ_zxz => "ZXZ (intrinsic) = zxz (extrinsic)",
+            Self::ZYZ_zyz => "ZYZ (intrinsic) = zyz (extrinsic)",
+        }
+    }
+
     /// Parse a scipy-style sequence string.
     /// - Uppercase "XYZ", "ZYX", etc.: intrinsic (body frame)
     /// - Lowercase "xyz", "zyx", etc.: extrinsic (fixed frame)

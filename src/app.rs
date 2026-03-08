@@ -7,6 +7,7 @@ use leptos::wasm_bindgen::JsCast;
 
 mod axis_angle;
 mod axis_angle_flag;
+mod euler_angles;
 mod collapsible_section;
 mod dom;
 mod format;
@@ -19,6 +20,7 @@ mod slider_group;
 mod slider_widget;
 
 use axis_angle::AxisAngleBox;
+use euler_angles::EulerAnglesBox;
 use format::{MatrixFormat, VectorFormat};
 use quaternion::QuaternionBox;
 use rotation_matrix::RotationMatrixBox;
@@ -103,6 +105,39 @@ impl CustomSliderConfig {
         )
     }
 
+    pub fn euler_angle_rad() -> Self {
+        let pi = std::f64::consts::PI;
+        Self::with_markers(
+            -3.0 * pi / 2.0,
+            3.0 * pi / 2.0,
+            &[
+                (-3.0 * pi / 2.0, "-3π/2"),
+                (-pi, "-π"),
+                (-pi / 2.0, "-π/2"),
+                (0.0, "0"),
+                (pi / 2.0, "π/2"),
+                (pi, "π"),
+                (3.0 * pi / 2.0, "3π/2"),
+            ],
+        )
+    }
+
+    pub fn euler_angle_deg() -> Self {
+        Self::with_markers(
+            -270.0,
+            270.0,
+            &[
+                (-270.0, "-270°"),
+                (-180.0, "-180°"),
+                (-90.0, "-90°"),
+                (0.0, "0°"),
+                (90.0, "90°"),
+                (180.0, "180°"),
+                (270.0, "270°"),
+            ],
+        )
+    }
+
     pub fn angle_degrees() -> Self {
         Self::with_markers(
             0.0,
@@ -126,6 +161,7 @@ pub(crate) enum ActiveInput {
     RotationVector,
     RotationMatrix,
     AxisAngle,
+    EulerAngles,
 }
 
 /// Callback to request a 3D canvas redraw (used for reactive rendering).
@@ -265,6 +301,7 @@ fn App(
         <h1>"Rotation Visualizer"</h1>
         <AxisAngleBox rotation=rotation format=format active_input=active_input />
         <RotationVectorBox rotation=rotation format=format active_input=active_input />
+        <EulerAnglesBox rotation=rotation format=format active_input=active_input />
         <QuaternionBox rotation=rotation format=format active_input=active_input />
         <RotationMatrixBox rotation=rotation format=matrix_format active_input=active_input />
     }
