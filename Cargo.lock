@@ -1986,6 +1986,8 @@ dependencies = [
  "gloo-net",
  "leptos",
  "log",
+ "serde",
+ "serde_json",
  "three-d",
  "three-d-asset",
  "wasm-bindgen",
