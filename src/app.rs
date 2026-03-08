@@ -638,7 +638,7 @@ fn run_three_d(
         );
         let mut control = OrbitControl::new(camera.target(), 1.0, 100.0);
 
-        let axes = Axes::new(&gl, 0.1, 2.0);
+        let axes = Axes::new(&gl, 0.06, 2.0);
         let mut axes_body = Axes::new(&gl, 0.08, 1.5);
         let light0 = DirectionalLight::new(&gl, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
         let light1 = DirectionalLight::new(&gl, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
