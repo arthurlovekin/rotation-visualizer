@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """
-Preprocess OBJ files to add smooth normals (for files without them)
-and triangulate quads. Also fix the space shuttle MTL reference.
-Run from the assets/ directory.
+Preprocess OBJ files: add smooth normals or triangulate quads.
+
+Usage:
+  # Add smooth per-vertex normals (for files with plain `f v1 v2 v3` faces):
+  python preprocess_objs.py add-normals --input a.obj b.obj --output a_out.obj b_out.obj
+
+  # Triangulate quad faces (and optionally fix MTL reference):
+  python preprocess_objs.py triangulate --input shuttle_raw.obj --output shuttle.obj [--mtl shuttle.mtl]
 """
 
+import argparse
 import math
 import os
+import sys
 
 
 def normalize(v):
@@ -52,7 +59,6 @@ def add_normals_to_obj(src, dst):
             in_vertices = True
         elif s.startswith('f '):
             parts = s.split()[1:]
-            # Only handle triangles here (quads handled separately)
             idxs = [int(p.split('/')[0]) - 1 for p in parts]
             if len(idxs) == 3:
                 faces.append(idxs)
@@ -86,19 +92,20 @@ def add_normals_to_obj(src, dst):
             out.write(f'vn {n[0]:.6f} {n[1]:.6f} {n[2]:.6f}\n')
         for f in faces:
             i0, i1, i2 = f[0] + 1, f[1] + 1, f[2] + 1
-            # Use same index for vertex and normal (per-vertex normals)
             out.write(f'f {i0}//{i0} {i1}//{i1} {i2}//{i2}\n')
 
-    print(f'  {os.path.basename(src)}: {len(vertices)} verts, {len(faces)} tris, normals added')
+    print(f'  {os.path.basename(src)} -> {os.path.basename(dst)}: '
+          f'{len(vertices)} verts, {len(faces)} tris, normals added')
 
 
-def triangulate_shuttle(src, dst, mtl_fix=None):
+def triangulate_obj(src, dst, mtl_fix=None):
     """
-    Triangulate quad faces (fan), fix MTL reference, keep v/vt/vn indices.
+    Triangulate quad/polygon faces (fan), optionally fix MTL reference,
+    keep existing v/vt/vn indices.
     """
     out_lines = []
     tri_count = 0
-    quad_count = 0
+    poly_count = 0
 
     with open(src) as f:
         for line in f:
@@ -111,54 +118,62 @@ def triangulate_shuttle(src, dst, mtl_fix=None):
                 if len(parts) == 3:
                     out_lines.append(line)
                     tri_count += 1
-                elif len(parts) == 4:
-                    # Fan triangulate: 0-1-2 and 0-2-3
-                    out_lines.append(f'f {parts[0]} {parts[1]} {parts[2]}\n')
-                    out_lines.append(f'f {parts[0]} {parts[2]} {parts[3]}\n')
-                    quad_count += 1
                 else:
-                    # Polygon: fan from first vertex
+                    # Fan triangulate from first vertex
                     for i in range(1, len(parts) - 1):
                         out_lines.append(f'f {parts[0]} {parts[i]} {parts[i+1]}\n')
-                    quad_count += 1
+                    poly_count += 1
             else:
                 out_lines.append(line)
 
     with open(dst, 'w') as out:
         out.writelines(out_lines)
 
-    print(f'  {os.path.basename(src)}: {tri_count} tris kept, {quad_count} quads → 2 tris each')
+    print(f'  {os.path.basename(src)} -> {os.path.basename(dst)}: '
+          f'{tri_count} tris kept, {poly_count} polys triangulated')
+
+
+def cmd_add_normals(args):
+    if len(args.input) != len(args.output):
+        sys.exit(f'error: --input has {len(args.input)} files but --output has {len(args.output)}')
+    for src, dst in zip(args.input, args.output):
+        if not os.path.exists(src):
+            sys.exit(f'error: input file not found: {src}')
+        add_normals_to_obj(src, dst)
+
+
+def cmd_triangulate(args):
+    if len(args.input) != len(args.output):
+        sys.exit(f'error: --input has {len(args.input)} files but --output has {len(args.output)}')
+    if args.mtl and len(args.input) > 1:
+        sys.exit('error: --mtl can only be used with a single input file')
+    for src, dst in zip(args.input, args.output):
+        if not os.path.exists(src):
+            sys.exit(f'error: input file not found: {src}')
+        triangulate_obj(src, dst, mtl_fix=args.mtl)
 
 
 def main():
-    assets_dir = os.path.dirname(os.path.abspath(__file__))
+    parser = argparse.ArgumentParser(
+        description='Preprocess OBJ files: add smooth normals or triangulate quads.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    sub = parser.add_subparsers(dest='command', required=True)
 
-    # Files that need normals added (plain `f v1 v2 v3` format)
-    needs_normals = [
-        'cow.obj',
-        'teapot.obj',
-        'stanford-bunny.obj',
-        'lucy.obj',
-        'xyzrgb_dragon.obj',
-    ]
+    p_normals = sub.add_parser('add-normals', help='Compute and add smooth per-vertex normals')
+    p_normals.add_argument('--input',  '-i', nargs='+', required=True, metavar='FILE', help='Input OBJ file(s)')
+    p_normals.add_argument('--output', '-o', nargs='+', required=True, metavar='FILE', help='Output OBJ file(s)')
+    p_normals.set_defaults(func=cmd_add_normals)
 
-    print('Adding smooth normals:')
-    for name in needs_normals:
-        src = os.path.join(assets_dir, name)
-        if os.path.exists(src):
-            add_normals_to_obj(src, src)
-        else:
-            print(f'  SKIP (not found): {name}')
+    p_tri = sub.add_parser('triangulate', help='Triangulate quad/polygon faces')
+    p_tri.add_argument('--input',  '-i', nargs='+', required=True, metavar='FILE', help='Input OBJ file(s)')
+    p_tri.add_argument('--output', '-o', nargs='+', required=True, metavar='FILE', help='Output OBJ file(s)')
+    p_tri.add_argument('--mtl', metavar='NAME', help='Replace mtllib reference with this filename (single-file only)')
+    p_tri.set_defaults(func=cmd_triangulate)
 
-    # Space shuttle: triangulate quads + fix MTL reference
-    print('Fixing space shuttle (triangulate + MTL reference):')
-    shuttle = os.path.join(assets_dir, 'space_shuttle_low_poly.obj')
-    if os.path.exists(shuttle):
-        triangulate_shuttle(shuttle, shuttle, mtl_fix='space_shuttle_low_poly.mtl')
-    else:
-        print('  SKIP: space_shuttle_low_poly.obj not found')
-
-    print('Done.')
+    args = parser.parse_args()
+    args.func(args)
 
 
 if __name__ == '__main__':
