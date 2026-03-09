@@ -112,43 +112,15 @@ pub fn VectorSliderGroup(
                 let value = slot.value;
                 let dual_value = slot.dual_value;
                 let on_pointerdown = slot.on_pointerdown;
-                let slot_view = match (dual_value, on_pointerdown) {
-                    (Some(dual), Some(pd)) => view! {
-                        <CustomSlider
-                            label=label
-                            config=config.clone()
-                            value=value
-                            dual_value=dual
-                            on_handle_pointerdown=pd
-                            on_value_change=on_change.clone()
-                        />
-                    }.into_view().into_any(),
-                    (Some(dual), None) => view! {
-                        <CustomSlider
-                            label=label
-                            config=config.clone()
-                            value=value
-                            dual_value=dual
-                            on_value_change=on_change.clone()
-                        />
-                    }.into_view().into_any(),
-                    (None, Some(pd)) => view! {
-                        <CustomSlider
-                            label=label
-                            config=config.clone()
-                            value=value
-                            on_handle_pointerdown=pd
-                            on_value_change=on_change.clone()
-                        />
-                    }.into_view().into_any(),
-                    (None, None) => view! {
-                        <CustomSlider
-                            label=label
-                            config=config.clone()
-                            value=value
-                            on_value_change=on_change.clone()
-                        />
-                    }.into_view().into_any(),
+                let slot_view = view! {
+                    <CustomSlider
+                        label=label
+                        config=config.clone()
+                        value=value
+                        nostrip:dual_value=dual_value
+                        nostrip:on_handle_pointerdown=on_pointerdown
+                        on_value_change=on_change.clone()
+                    />
                 };
                 view! {
                     <div style=move || format!("order: {};", flex_order())>
