@@ -5,7 +5,7 @@ use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::HtmlSelectElement;
 
 use crate::app::collapsible_section::CollapsibleSection;
-use crate::app::dom::input_event_value;
+use crate::app::dom::{input_event_value, make_on_blur};
 use crate::app::format::{parse_vector_and_format, VectorFormat};
 use crate::app::rotation::{Quaternion, Rotation};
 use crate::app::slider_widget::CustomSliderConfig;
@@ -57,9 +57,7 @@ pub fn QuaternionBox(
         }
     };
 
-    let on_blur = move |_: leptos::web_sys::FocusEvent| {
-        active_input.set(ActiveInput::None);
-    };
+    let on_blur = make_on_blur(active_input);
 
     let on_convention_change = move |ev: leptos::web_sys::Event| {
         active_input.set(ActiveInput::None);

@@ -1,11 +1,9 @@
 //! Rotation vector input box with slider group.
 
 use leptos::prelude::*;
-use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::HtmlSelectElement;
 
 use crate::app::collapsible_section::CollapsibleSection;
-use crate::app::dom::input_event_value;
+use crate::app::dom::{input_event_value, make_on_angle_unit_change, make_on_blur};
 use crate::app::format::{parse_vector_and_format, VectorFormat};
 use crate::app::rotation::{Rotation, RotationVector};
 use super::slider_group::RotationVectorSliderGroup;
@@ -53,19 +51,8 @@ pub fn RotationVectorBox(
         }
     };
 
-    let on_blur = move |_: leptos::web_sys::FocusEvent| {
-        active_input.set(ActiveInput::None);
-    };
-
-    let on_angle_unit_change = move |ev: leptos::web_sys::Event| {
-        active_input.set(ActiveInput::None);
-        let value = ev
-            .target()
-            .unwrap()
-            .unchecked_into::<HtmlSelectElement>()
-            .value();
-        use_degrees.set(value == "degrees");
-    };
+    let on_blur = make_on_blur(active_input);
+    let on_angle_unit_change = make_on_angle_unit_change(active_input, use_degrees);
 
     view! {
         <CollapsibleSection title="Rotation Vector">

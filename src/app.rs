@@ -45,15 +45,14 @@ impl Default for VisibilityFlags {
 struct AssetDef {
     label: &'static str,
     obj_path: &'static str,
-    mtl_path: Option<&'static str>,
 }
 
 const ASSETS: &[AssetDef] = &[
-    AssetDef { label: "Suzanne (Monkey)", obj_path: "assets/suzanne_monkey.obj", mtl_path: None },
-    AssetDef { label: "Cow",              obj_path: "assets/cow.obj",             mtl_path: None },
-    AssetDef { label: "Stanford Bunny",   obj_path: "assets/stanford-bunny.obj",  mtl_path: None },
-    AssetDef { label: "Teapot",           obj_path: "assets/teapot.obj",          mtl_path: None },
-    AssetDef { label: "Airplane",         obj_path: "assets/airplane.obj",        mtl_path: None },
+    AssetDef { label: "Suzanne (Monkey)", obj_path: "assets/suzanne_monkey.obj" },
+    AssetDef { label: "Cow",              obj_path: "assets/cow.obj" },
+    AssetDef { label: "Stanford Bunny",   obj_path: "assets/stanford-bunny.obj" },
+    AssetDef { label: "Teapot",           obj_path: "assets/teapot.obj" },
+    AssetDef { label: "Airplane",         obj_path: "assets/airplane.obj" },
 ];
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
@@ -658,11 +657,7 @@ fn run_three_d(
                         let request_redraw = request_redraw.clone();
                         wasm_bindgen_futures::spawn_local(async move {
                             let asset = &ASSETS[idx];
-                            let mut paths: Vec<&str> = vec![asset.obj_path];
-                            if let Some(mtl) = asset.mtl_path {
-                                paths.push(mtl);
-                            }
-                            match load_assets_wasm(&paths).await {
+                            match load_assets_wasm(&[asset.obj_path]).await {
                                 Ok(mut loaded) => {
                                     match loaded.deserialize::<three_d::CpuMesh>(asset.obj_path) {
                                         Ok(mut cpu_mesh) => {
@@ -879,13 +874,6 @@ mod tests {
                 "Missing obj file: {}",
                 asset.obj_path
             );
-            if let Some(mtl) = asset.mtl_path {
-                assert!(
-                    Path::new(mtl).exists(),
-                    "Missing mtl file: {}",
-                    mtl
-                );
-            }
         }
     }
 }
