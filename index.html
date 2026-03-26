@@ -8,18 +8,22 @@
     <style>
       :root {
         --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-        --bg-left: #1a1a2e;
-        --bg-left-end: #12122a;
-        --bg-right: #0d0d18;
-        --bg-panel: #1e1e24;
-        --color-primary: rgba(200, 235, 255, 0.95);
-        --color-secondary: #8a9ca8;
-        --color-muted: #5a6570;
-        --color-tick: #2a3038;
-        --accent: rgba(100, 200, 255, 0.85);
-        --accent-muted: rgba(120, 160, 200, 0.5);
-        --border: rgba(80, 100, 120, 0.4);
-        --border-strong: rgba(80, 120, 160, 0.6);
+
+        /* Backgrounds */
+        --bg-left:     #252538;
+        --bg-left-end: #1d1d30;
+        --bg-right:    #0c0c18;
+        --bg-panel:    #1e1e28;
+        --bg-section:  rgba(30, 30, 60, 0.32);
+
+        /* Six palette colors */
+        --color-primary:   rgba(210, 235, 255, 0.95);
+        --color-secondary: #8aa0b0;
+        --color-muted:     #506070;
+        --border:          rgba(60, 100, 165, 0.40);
+        --border-strong:   rgba(75, 130, 205, 0.65);
+        --accent:          rgba(100, 200, 255, 0.90);
+        --accent-muted:    rgba(75, 130, 205, 0.50);
       }
       html, body {
         margin: 0;
@@ -69,7 +73,12 @@
         padding: 0;
       }
       #leptos-app .control-section {
-        margin-bottom: 2.2em;
+        margin-bottom: 1.0em;
+        background: var(--bg-section);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--border-strong);
+        border-radius: 2px;
+        padding: 0.85em 1.1em;
       }
       #leptos-app .control-section:last-child {
         margin-bottom: 0;
@@ -78,9 +87,12 @@
         display: flex;
         align-items: center;
         gap: 0.35em;
-        margin-bottom: 0.6em;
+        margin-bottom: 0.65em;
       }
-      #leptos-app .section-header .section-title {
+      #leptos-app .control-section:has(.section-collapsed) .section-header {
+        margin-bottom: 0;
+      }
+#leptos-app .section-header .section-title {
         margin: 0;
       }
       #leptos-app .dropdown-button {
@@ -169,7 +181,7 @@
         min-width: 200px;
         height: 100%;
         position: relative;
-        background: linear-gradient(135deg, var(--bg-right) 0%, #0a0a14 50%, #080812 100%);
+        background: var(--bg-right);
       }
       .canvas-container::before {
         content: '';
@@ -201,7 +213,7 @@
         color: var(--color-primary);
         border: 1px solid var(--border);
         border-radius: 2px;
-        box-shadow: inset 0 0 0 1px rgba(80, 80, 90, 0.3),
+        box-shadow: inset 0 0 0 1px var(--border),
                     inset 0 1px 2px rgba(0, 0, 0, 0.3);
       }
       .vector-input-3 {
