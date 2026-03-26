@@ -296,7 +296,7 @@ fn setup_resize_handle(request_redraw: RequestRedraw) {
 fn App(
     #[prop(optional)] rotation_for_renderer: Option<Rc<RefCell<Rotation>>>,
     #[prop(optional)] request_redraw: Option<RequestRedraw>,
-    #[prop(optional)] pending_asset: Option<Rc<RefCell<Option<usize>>>>,
+    #[prop(optional)] pending_asset: Option<Rc<RefCell<Option<Option<usize>>>>>,
     #[prop(optional)] visibility_flags: Option<Rc<RefCell<VisibilityFlags>>>,
 ) -> impl IntoView {
     let rotation = RwSignal::new(Rotation::default());
@@ -369,18 +369,17 @@ fn App(
             .and_then(|t| t.dyn_into::<leptos::web_sys::HtmlSelectElement>().ok());
         if let Some(select) = target {
             let val = select.value();
-            if let Ok(idx) = val.parse::<usize>() {
-                pending_asset_sv.with_value(|pa| {
-                    if let Some(pa) = pa {
-                        *pa.borrow_mut() = Some(idx);
-                    }
-                });
-                request_redraw_sv.with_value(|r| {
-                    if let Some(r) = r {
-                        r();
-                    }
-                });
-            }
+            let pending = val.parse::<usize>().ok();
+            pending_asset_sv.with_value(|pa| {
+                if let Some(pa) = pa {
+                    *pa.borrow_mut() = Some(pending);
+                }
+            });
+            request_redraw_sv.with_value(|r| {
+                if let Some(r) = r {
+                    r();
+                }
+            });
         }
     };
 
@@ -390,7 +389,7 @@ fn App(
             <div class="graphics-controls">
                 <label for="asset-select">"Model: "</label>
                 <select id="asset-select" on:change=on_asset_change>
-                    <option value="">"-- none --"</option>
+                    <option value="">"-- None --"</option>
                     {ASSETS.iter().enumerate().map(|(i, a)| view! {
                         <option value={i.to_string()} selected={i == 0}>{a.label}</option>
                     }).collect::<Vec<_>>()}
@@ -576,7 +575,7 @@ fn run_three_d(
     rotation_for_renderer: Rc<RefCell<Rotation>>,
     request_redraw: RequestRedraw,
     event_loop: winit::event_loop::EventLoop<()>,
-    pending_asset: Rc<RefCell<Option<usize>>>,
+    pending_asset: Rc<RefCell<Option<Option<usize>>>>,
     visibility_flags: Rc<RefCell<VisibilityFlags>>,
 ) {
     use three_d::*;
@@ -651,7 +650,12 @@ fn run_three_d(
             match &event {
                 Event::UserEvent(()) => {
                     // Check for a pending asset load request from the UI
-                    if let Some(idx) = pending_asset.borrow_mut().take() {
+                    if let Some(pending) = pending_asset.borrow_mut().take() {
+                        match pending {
+                        None => {
+                            *mesh_objects.borrow_mut() = None;
+                        }
+                        Some(idx) => {
                         let mesh_objects = mesh_objects.clone();
                         let ctx = ctx.clone();
                         let request_redraw = request_redraw.clone();
@@ -713,6 +717,8 @@ fn run_three_d(
                                 }
                             }
                         });
+                        } // Some(idx)
+                        } // match pending
                     }
                     // Rotation changed from Leptos or asset loaded - request a redraw
                     window.request_redraw();
@@ -836,7 +842,7 @@ pub fn main() {
         let request_redraw: RequestRedraw = Rc::new(move || { let _ = redraw_proxy.send_event(()); });
         let rotation_for_app = rotation_for_renderer.clone();
         let request_redraw_for_app = request_redraw.clone();
-        let pending_asset: Rc<RefCell<Option<usize>>> = Rc::new(RefCell::new(Some(0)));
+        let pending_asset: Rc<RefCell<Option<Option<usize>>>> = Rc::new(RefCell::new(Some(Some(0))));
         let pending_asset_for_app = pending_asset.clone();
         let visibility_flags: Rc<RefCell<VisibilityFlags>> = Rc::new(RefCell::new(VisibilityFlags::default()));
         let visibility_flags_for_app = visibility_flags.clone();
