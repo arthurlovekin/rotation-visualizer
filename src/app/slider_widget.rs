@@ -66,12 +66,12 @@ const SLIDER_CSS: &str = r#"
 .slider-marker-tick {
   width: 1px;
   height: 0.2em;
-  background: var(--color-tick);
+  background: var(--color-secondary);
   margin-bottom: 0.05em;
 }
 .slider-marker-label {
   font-size: 0.5em;
-  color: var(--color-muted);
+  color: var(--color-secondary);
   font-family: var(--font-mono);
 }
 .slider-handle {
@@ -105,7 +105,7 @@ const SLIDER_CSS: &str = r#"
   transform: translate(-50%, -50%);
   width: 2px;
   height: 0.8em;
-  background: var(--accent-muted);
+  background: var(--border-strong);
   border-radius: 1px;
   z-index: 1;
   pointer-events: none;
