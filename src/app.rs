@@ -194,6 +194,9 @@ pub(crate) enum ActiveInput {
 /// Callback to request a 3D canvas redraw (used for reactive rendering).
 pub type RequestRedraw = Rc<dyn Fn()>;
 
+/// Callback from the renderer to update the Leptos rotation signal (e.g. mouse-drag object rotation).
+pub type SetRotation = Rc<dyn Fn(Rotation)>;
+
 #[cfg(target_arch = "wasm32")]
 fn setup_resize_handle(request_redraw: RequestRedraw) {
     use leptos::wasm_bindgen::closure::Closure;
@@ -298,6 +301,7 @@ fn App(
     #[prop(optional)] request_redraw: Option<RequestRedraw>,
     #[prop(optional)] pending_asset: Option<Rc<RefCell<Option<Option<usize>>>>>,
     #[prop(optional)] visibility_flags: Option<Rc<RefCell<VisibilityFlags>>>,
+    #[prop(optional)] set_rotation_slot: Option<Rc<RefCell<Option<SetRotation>>>>,
 ) -> impl IntoView {
     let rotation = RwSignal::new(Rotation::default());
     let format = RwSignal::new(VectorFormat::default());
@@ -305,6 +309,13 @@ fn App(
     matrix_fmt.row_delimiter = '\n';
     let matrix_format = RwSignal::new(matrix_fmt);
     let active_input = RwSignal::new(ActiveInput::None);
+
+    // Provide a callback for the renderer to push mouse-driven rotation changes back to the signal
+    if let Some(slot) = set_rotation_slot {
+        *slot.borrow_mut() = Some(Rc::new(move |rot: Rotation| {
+            rotation.set(rot);
+        }));
+    }
 
     // Sync rotation to the three-d renderer and request redraw when it changes
     if let Some(shared) = rotation_for_renderer {
@@ -574,6 +585,7 @@ fn window_event_needs_redraw(event: &winit::event::WindowEvent) -> bool {
 fn run_three_d(
     rotation_for_renderer: Rc<RefCell<Rotation>>,
     request_redraw: RequestRedraw,
+    set_rotation: SetRotation,
     event_loop: winit::event_loop::EventLoop<()>,
     pending_asset: Rc<RefCell<Option<Option<usize>>>>,
     visibility_flags: Rc<RefCell<VisibilityFlags>>,
@@ -589,6 +601,18 @@ fn run_three_d(
             .get_element_by_id("three-canvas")
             .expect("should find #three-canvas element")
             .unchecked_into::<leptos::web_sys::HtmlCanvasElement>();
+
+        // Prevent browser context menu on right-click so we can use it for camera orbit
+        {
+            use leptos::wasm_bindgen::closure::Closure;
+            let handler = Closure::<dyn Fn(leptos::web_sys::MouseEvent)>::new(move |e: leptos::web_sys::MouseEvent| {
+                e.prevent_default();
+            });
+            canvas_element
+                .add_event_listener_with_callback("contextmenu", handler.as_ref().unchecked_ref())
+                .expect("failed to add contextmenu listener");
+            handler.forget(); // leak closure – canvas lives for the entire session
+        }
 
         let dpr = leptos::web_sys::window().unwrap().device_pixel_ratio();
         let css_width = canvas_element.client_width() as f64;
@@ -634,7 +658,9 @@ fn run_three_d(
             0.1,
             1000.0,
         );
-        let mut control = OrbitControl::new(camera.target(), 1.0, 100.0);
+        let orbit_target = camera.target();
+        let orbit_min_distance = 1.0_f32;
+        let orbit_max_distance = 100.0_f32;
 
         let axes = Axes::new(&gl, 0.06, 2.0);
         let mut axes_body = Axes::new(&gl, 0.08, 1.5);
@@ -778,7 +804,93 @@ fn run_three_d(
                         }
                     }
 
-                    control.handle_events(&mut camera, &mut frame_input.events);
+                    // Custom event handling:
+                    // Right-click drag: orbit camera around target
+                    // Left-click drag: rotate object in world space
+                    // Mouse wheel: zoom camera
+                    let mut object_rotation_changed = false;
+                    for ev in frame_input.events.iter_mut() {
+                        match ev {
+                            three_d::Event::MouseMotion { delta, button, handled, .. } => {
+                                if !*handled {
+                                    if *button == Some(MouseButton::Right) {
+                                        // Orbit camera (same as OrbitControl)
+                                        let speed = 0.01;
+                                        camera.rotate_around_with_fixed_up(
+                                            orbit_target,
+                                            speed * delta.0,
+                                            speed * delta.1,
+                                        );
+                                        *handled = true;
+                                    } else if *button == Some(MouseButton::Left) {
+                                        // Rotate object in world space
+                                        let speed = 0.01;
+                                        let cam_right = camera.right_direction();
+                                        let cam_up = vec3(0.0, 0.0, 1.0); // world up
+
+                                        // Horizontal drag: rotate around world Z
+                                        // Vertical drag: rotate around camera right vector
+                                        let angle_h = delta.0 * speed;
+                                        let angle_v = delta.1 * speed;
+
+                                        let current_rot = rotation_for_renderer.borrow().as_quaternion();
+
+                                        // Build delta quaternions using axis-angle
+                                        let dq_h = if angle_h.abs() > 1e-8 {
+                                            use rotation::Quaternion as Q;
+                                            let half = angle_h / 2.0;
+                                            Q::new(half.cos(), cam_up.x * half.sin(), cam_up.y * half.sin(), cam_up.z * half.sin())
+                                        } else {
+                                            rotation::Quaternion::default()
+                                        };
+                                        let dq_v = if angle_v.abs() > 1e-8 {
+                                            use rotation::Quaternion as Q;
+                                            let half = angle_v / 2.0;
+                                            Q::new(half.cos(), cam_right.x * half.sin(), cam_right.y * half.sin(), cam_right.z * half.sin())
+                                        } else {
+                                            rotation::Quaternion::default()
+                                        };
+
+                                        // Compose: delta * current (pre-multiply for world-frame rotation)
+                                        let new_rot = dq_v * dq_h * current_rot;
+                                        *rotation_for_renderer.borrow_mut() = rotation::Rotation::from(new_rot);
+                                        object_rotation_changed = true;
+                                        *handled = true;
+                                    }
+                                }
+                            }
+                            three_d::Event::MouseWheel { delta, handled, .. } => {
+                                if !*handled {
+                                    let speed = 0.01 * orbit_target.distance(camera.position()) + 0.001;
+                                    camera.zoom_towards(
+                                        orbit_target,
+                                        speed * delta.1,
+                                        orbit_min_distance,
+                                        orbit_max_distance,
+                                    );
+                                    *handled = true;
+                                }
+                            }
+                            three_d::Event::PinchGesture { delta, handled, .. } => {
+                                if !*handled {
+                                    let speed = orbit_target.distance(camera.position()) + 0.1;
+                                    camera.zoom_towards(
+                                        orbit_target,
+                                        speed * *delta,
+                                        orbit_min_distance,
+                                        orbit_max_distance,
+                                    );
+                                    *handled = true;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    // Sync mouse-driven object rotation back to Leptos signal
+                    if object_rotation_changed {
+                        let new_rot = *rotation_for_renderer.borrow();
+                        set_rotation(new_rot);
+                    }
 
                     let rot = rotation_for_renderer.borrow();
                     let rot_mat = rotation_to_mat4(&rot);
@@ -857,13 +969,22 @@ pub fn main() {
         let pending_asset_for_app = pending_asset.clone();
         let visibility_flags: Rc<RefCell<VisibilityFlags>> = Rc::new(RefCell::new(VisibilityFlags::default()));
         let visibility_flags_for_app = visibility_flags.clone();
+        let set_rotation_slot: Rc<RefCell<Option<SetRotation>>> = Rc::new(RefCell::new(None));
+        let set_rotation_slot_for_app = set_rotation_slot.clone();
 
         mount_to(leptos_root, move || {
-            view! { <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() pending_asset=pending_asset_for_app.clone() visibility_flags=visibility_flags_for_app.clone() /> }
+            view! { <App rotation_for_renderer=rotation_for_app.clone() request_redraw=request_redraw_for_app.clone() pending_asset=pending_asset_for_app.clone() visibility_flags=visibility_flags_for_app.clone() set_rotation_slot=set_rotation_slot_for_app.clone() /> }
         })
         .forget();
 
-        run_three_d(rotation_for_renderer, request_redraw, event_loop, pending_asset, visibility_flags);
+        // Retrieve the SetRotation callback that App installed
+        let set_rotation: SetRotation = set_rotation_slot
+            .borrow()
+            .as_ref()
+            .expect("App should have installed set_rotation callback")
+            .clone();
+
+        run_three_d(rotation_for_renderer, request_redraw, set_rotation, event_loop, pending_asset, visibility_flags);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
