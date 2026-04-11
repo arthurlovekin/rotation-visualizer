@@ -48,11 +48,11 @@ struct AssetDef {
 }
 
 const ASSETS: &[AssetDef] = &[
-    AssetDef { label: "Suzanne (Monkey)", obj_path: "assets/suzanne_monkey.obj" },
+    AssetDef { label: "Airplane",         obj_path: "assets/airplane.obj" },
     AssetDef { label: "Cow",              obj_path: "assets/cow.obj" },
     AssetDef { label: "Stanford Bunny",   obj_path: "assets/stanford-bunny.obj" },
+    AssetDef { label: "Suzanne (Monkey)", obj_path: "assets/suzanne_monkey.obj" },
     AssetDef { label: "Teapot",           obj_path: "assets/teapot.obj" },
-    AssetDef { label: "Airplane",         obj_path: "assets/airplane.obj" },
 ];
 
 /// App-specific slider config constructors. Kept in app.rs so slider_widget remains reusable.
