@@ -200,8 +200,30 @@
         position: relative;
         z-index: 0;
       }
+      .axis-legend {
+        position: absolute;
+        bottom: 12px;
+        right: 16px;
+        z-index: 2;
+        display: flex;
+        gap: 0.6em;
+        font-family: var(--font-mono);
+        font-size: 0.95rem;
+        font-weight: 500;
+        pointer-events: none;
+        user-select: none;
+      }
+      .axis-legend span {
+        text-shadow: 0 0 4px rgba(0,0,0,0.8);
+      }
       .red {
         color: red;
+      }
+      .green {
+        color: green;
+      }
+      .blue {
+        color: blue;
       }
       .vector-input {
         font-family: var(--font-mono);
@@ -237,6 +259,11 @@
       <div class="resize-handle" id="resize-handle"></div>
       <div class="canvas-container">
         <canvas id="three-canvas"></canvas>
+        <div class="axis-legend">
+          <span class="red">X</span>
+          <span class="green">Y</span>
+          <span class="blue">Z</span>
+        </div>
       </div>
     </div>
   </body>
