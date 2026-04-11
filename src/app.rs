@@ -767,6 +767,17 @@ fn run_three_d(
                     };
 
                     camera.set_viewport(canvas_viewport);
+
+                    // Scale down mouse-wheel deltas for smoother zooming.
+                    // (Default LineDelta values are far too large, causing
+                    // zoom to jump instantly to min/max distance)
+                    for ev in frame_input.events.iter_mut() {
+                        if let three_d::Event::MouseWheel { delta, .. } = ev {
+                            delta.0 *= 0.1;
+                            delta.1 *= 0.1;
+                        }
+                    }
+
                     control.handle_events(&mut camera, &mut frame_input.events);
 
                     let rot = rotation_for_renderer.borrow();
