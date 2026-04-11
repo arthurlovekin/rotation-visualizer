@@ -213,8 +213,18 @@
         pointer-events: none;
         user-select: none;
       }
-      .axis-legend span {
-        text-shadow: 0 0 4px rgba(0,0,0,0.8);
+      .mouse-legend {
+        position: absolute;
+        bottom: 12px;
+        left: 16px;
+        z-index: 2;
+        display: flex;
+        gap: 1.2em;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        pointer-events: none;
+        user-select: none;
+        color: var(--color-secondary);
       }
       .red {
         color: red;
@@ -259,6 +269,10 @@
       <div class="resize-handle" id="resize-handle"></div>
       <div class="canvas-container">
         <canvas id="three-canvas"></canvas>
+        <div class="mouse-legend">
+          <span>Left-Click: Rotate Object</span>
+          <span>Right-Click: Rotate Camera</span>
+        </div>
         <div class="axis-legend">
           <span class="red">X</span>
           <span class="green">Y</span>
