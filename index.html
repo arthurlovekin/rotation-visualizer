@@ -200,31 +200,29 @@
         position: relative;
         z-index: 0;
       }
-      .axis-legend {
+      .canvas-legend {
         position: absolute;
         bottom: 12px;
         right: 16px;
         z-index: 2;
         display: flex;
-        gap: 0.6em;
+        align-items: flex-end;
+        gap: 1.2em;
         font-family: var(--font-mono);
-        font-size: 0.95rem;
-        font-weight: 500;
         pointer-events: none;
         user-select: none;
       }
       .mouse-legend {
-        position: absolute;
-        bottom: 12px;
-        left: 16px;
-        z-index: 2;
         display: flex;
         gap: 1.2em;
-        font-family: var(--font-mono);
         font-size: 0.8rem;
-        pointer-events: none;
-        user-select: none;
         color: var(--color-secondary);
+      }
+      .axis-legend {
+        display: flex;
+        gap: 0.6em;
+        font-size: 0.95rem;
+        font-weight: 500;
       }
       .red {
         color: red;
@@ -269,14 +267,16 @@
       <div class="resize-handle" id="resize-handle"></div>
       <div class="canvas-container">
         <canvas id="three-canvas"></canvas>
-        <div class="mouse-legend">
-          <span>Left-Click: Rotate Object</span>
-          <span>Right-Click: Rotate Camera</span>
-        </div>
-        <div class="axis-legend">
-          <span class="red">X</span>
-          <span class="green">Y</span>
-          <span class="blue">Z</span>
+        <div class="canvas-legend">
+          <div class="mouse-legend">
+            <span>Left-Click: Rotate Object</span>
+            <span>Right-Click: Rotate Camera</span>
+          </div>
+          <div class="axis-legend">
+            <span class="red">X</span>
+            <span class="green">Y</span>
+            <span class="blue">Z</span>
+          </div>
         </div>
       </div>
     </div>
